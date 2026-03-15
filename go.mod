@@ -1,4 +1,4 @@
-module github.com/wow-look-at-my/lightweight-go-selfupdate
+module wow-look-at-my.download/selfupdate-mini
 
 go 1.22
 
