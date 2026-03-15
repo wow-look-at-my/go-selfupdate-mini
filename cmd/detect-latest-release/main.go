@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	selfupdate "github.com/wow-look-at-my/lightweight-go-selfupdate"
+	selfupdate "github.com/wow-look-at-my/lightweight-go-selfupdate/pkg/selfupdate"
 )
 
 func main() {
