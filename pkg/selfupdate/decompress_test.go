@@ -9,19 +9,20 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"github.com/wow-look-at-my/testify/assert"
+	"github.com/wow-look-at-my/testify/require"
 )
 
 func makeGzip(t *testing.T, name string, content []byte) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	w, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	w.Name = name
-	if _, err := w.Write(content); err != nil {
-		t.Fatal(err)
-	}
+	_, err = w.Write(content)
+	require.Nil(t, err)
+
 	w.Close()
 	return buf.Bytes()
 }
@@ -33,12 +34,11 @@ func makeTarGz(t *testing.T, files map[string][]byte) []byte {
 	tw := tar.NewWriter(gw)
 	for name, content := range files {
 		hdr := &tar.Header{Name: name, Size: int64(len(content)), Mode: 0o755}
-		if err := tw.WriteHeader(hdr); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tw.Write(content); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, tw.WriteHeader(hdr))
+
+		_, err := tw.Write(content)
+		require.Nil(t, err)
+
 	}
 	tw.Close()
 	gw.Close()
@@ -51,12 +51,11 @@ func makeZip(t *testing.T, files map[string][]byte) []byte {
 	w := zip.NewWriter(&buf)
 	for name, content := range files {
 		f, err := w.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := f.Write(content); err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
+
+		_, err = f.Write(content)
+		require.Nil(t, err)
+
 	}
 	w.Close()
 	return buf.Bytes()
@@ -76,13 +75,11 @@ func TestDecompressZip(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	r, err := decompressCommand(bytes.NewReader(data), "myapp.zip", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "binary content" {
-		t.Errorf("unexpected content: %q", out)
-	}
+	assert.Equal(t, "binary content", string(out))
+
 }
 
 func TestDecompressZipWithSubdir(t *testing.T) {
@@ -90,13 +87,11 @@ func TestDecompressZipWithSubdir(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	r, err := decompressCommand(bytes.NewReader(data), "release.zip", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "binary" {
-		t.Errorf("unexpected: %q", out)
-	}
+	assert.Equal(t, "binary", string(out))
+
 }
 
 func TestDecompressZipNotFound(t *testing.T) {
@@ -104,9 +99,8 @@ func TestDecompressZipNotFound(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	_, err := decompressCommand(bytes.NewReader(data), "release.zip", "myapp", decompressors)
-	if err == nil {
-		t.Error("expected error when executable not found in zip")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDecompressTarGz(t *testing.T) {
@@ -114,13 +108,11 @@ func TestDecompressTarGz(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	r, err := decompressCommand(bytes.NewReader(data), "release.tar.gz", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "tar content" {
-		t.Errorf("unexpected: %q", out)
-	}
+	assert.Equal(t, "tar content", string(out))
+
 }
 
 func TestDecompressTgz(t *testing.T) {
@@ -128,13 +120,11 @@ func TestDecompressTgz(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	r, err := decompressCommand(bytes.NewReader(data), "release.tgz", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "tgz content" {
-		t.Errorf("unexpected: %q", out)
-	}
+	assert.Equal(t, "tgz content", string(out))
+
 }
 
 func TestDecompressTarGzNotFound(t *testing.T) {
@@ -142,9 +132,8 @@ func TestDecompressTarGzNotFound(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	_, err := decompressCommand(bytes.NewReader(data), "release.tar.gz", "myapp", decompressors)
-	if err == nil {
-		t.Error("expected error")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDecompressGzip(t *testing.T) {
@@ -152,13 +141,11 @@ func TestDecompressGzip(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	r, err := decompressCommand(bytes.NewReader(data), "myapp.gz", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "gzip content" {
-		t.Errorf("unexpected: %q", out)
-	}
+	assert.Equal(t, "gzip content", string(out))
+
 }
 
 func TestDecompressGzipWrongName(t *testing.T) {
@@ -166,9 +153,8 @@ func TestDecompressGzipWrongName(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	_, err := decompressCommand(bytes.NewReader(data), "other.gz", "myapp", decompressors)
-	if err == nil {
-		t.Error("expected error for wrong gzip filename")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDecompressBz2(t *testing.T) {
@@ -179,9 +165,8 @@ func TestDecompressBz2(t *testing.T) {
 	// but we can test the reader path returns without error
 	// by testing with invalid data to at least exercise the code path
 	r, err := decompressCommand(strings.NewReader("raw"), "myapp.bz2", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	// bzip2.NewReader will fail on Read, not on creation
 	_ = r
 }
@@ -190,13 +175,11 @@ func TestDecompressUnknownExtension(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 
 	r, err := decompressCommand(strings.NewReader("raw binary"), "myapp", "myapp", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "raw binary" {
-		t.Errorf("unexpected: %q", out)
-	}
+	assert.Equal(t, "raw binary", string(out))
+
 }
 
 func TestDecompressCustomDecompressor(t *testing.T) {
@@ -207,43 +190,38 @@ func TestDecompressCustomDecompressor(t *testing.T) {
 	decompressors[".custom"] = custom
 
 	r, err := decompressCommand(strings.NewReader("data"), "app.custom", "app", decompressors)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	out, _ := io.ReadAll(r)
-	if string(out) != "custom-decompressed" {
-		t.Errorf("unexpected: %q", out)
-	}
+	assert.Equal(t, "custom-decompressed", string(out))
+
 }
 
 func TestDecompressInvalidZip(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 	_, err := decompressCommand(strings.NewReader("not a zip"), "file.zip", "app", decompressors)
-	if err == nil {
-		t.Error("expected error for invalid zip")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDecompressInvalidGzip(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 	_, err := decompressCommand(strings.NewReader("not gzip"), "file.gz", "app", decompressors)
-	if err == nil {
-		t.Error("expected error for invalid gzip")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDecompressInvalidTarGz(t *testing.T) {
 	decompressors := builtinDecompressors("linux", "amd64")
 	_, err := decompressCommand(strings.NewReader("not tar.gz"), "file.tar.gz", "app", decompressors)
-	if err == nil {
-		t.Error("expected error for invalid tar.gz")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestMatchExecutableName(t *testing.T) {
 	tests := []struct {
-		cmd, os, arch, target string
-		want                  bool
+		cmd, os, arch, target	string
+		want			bool
 	}{
 		{"myapp", "linux", "amd64", "myapp", true},
 		{"myapp", "linux", "amd64", "myapp_linux_amd64", true},
@@ -258,36 +236,32 @@ func TestMatchExecutableName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
 			got := matchExecutableName(tt.cmd, tt.os, tt.arch, tt.target)
-			if got != tt.want {
-				t.Errorf("matchExecutableName(%q, %q, %q, %q) = %v, want %v",
-					tt.cmd, tt.os, tt.arch, tt.target, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
+
 		})
 	}
 }
 
 func TestSortedExtensions(t *testing.T) {
 	m := map[string]Decompressor{
-		".gz":     nil,
-		".tar.gz": nil,
-		".zip":    nil,
+		".gz":		nil,
+		".tar.gz":	nil,
+		".zip":		nil,
 	}
 	exts := sortedExtensions(m)
-	if len(exts) != 3 {
-		t.Fatalf("expected 3, got %d", len(exts))
-	}
-	if exts[0] != ".tar.gz" {
-		t.Errorf("expected .tar.gz first (longest), got %s", exts[0])
-	}
+	require.Equal(t, 3, len(exts))
+
+	assert.Equal(t, ".tar.gz", exts[0])
+
 }
 
 func TestBuiltinDecompressors(t *testing.T) {
 	d := builtinDecompressors("linux", "amd64")
 	expected := []string{".zip", ".tar.gz", ".tgz", ".gzip", ".gz", ".bz2"}
 	for _, ext := range expected {
-		if _, ok := d[ext]; !ok {
-			t.Errorf("missing builtin decompressor for %s", ext)
-		}
+		_, ok := d[ext]
+		assert.True(t, ok)
+
 	}
 }
 

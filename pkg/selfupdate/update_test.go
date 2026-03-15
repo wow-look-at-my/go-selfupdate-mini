@@ -10,14 +10,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"github.com/wow-look-at-my/testify/assert"
+	"github.com/wow-look-at-my/testify/require"
 )
 
 func TestUpdateToNilRelease(t *testing.T) {
 	up, _ := NewUpdater(Config{Platform: Platform{OS: "linux", Arch: "amd64"}})
 	err := up.UpdateTo(context.Background(), nil, "/tmp/test")
-	if !errors.Is(err, ErrInvalidRelease) {
-		t.Errorf("expected ErrInvalidRelease, got %v", err)
-	}
+	assert.True(t, errors.Is(err, ErrInvalidRelease))
+
 }
 
 func TestUpdateToWithValidation(t *testing.T) {
@@ -26,8 +27,8 @@ func TestUpdateToWithValidation(t *testing.T) {
 	}
 	validationCalled := false
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		Validate: func(rel *Release, data []byte) error {
 			validationCalled = true
 			if string(data) != "binary content" {
@@ -41,16 +42,14 @@ func TestUpdateToWithValidation(t *testing.T) {
 	})
 
 	rel := &Release{
-		Asset:      Asset{ID: 1, Name: "app", URL: "https://example.com/app"},
-		repository: NewRepositorySlug("test", "repo"),
+		Asset:		Asset{ID: 1, Name: "app", URL: "https://example.com/app"},
+		repository:	NewRepositorySlug("test", "repo"),
 	}
 	err := up.UpdateTo(context.Background(), rel, "/tmp/test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !validationCalled {
-		t.Error("validation callback was not called")
-	}
+	require.Nil(t, err)
+
+	assert.True(t, validationCalled)
+
 }
 
 func TestUpdateToValidationFailure(t *testing.T) {
@@ -58,8 +57,8 @@ func TestUpdateToValidationFailure(t *testing.T) {
 		assets: map[int64]string{1: "binary"},
 	}
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		Validate: func(rel *Release, data []byte) error {
 			return fmt.Errorf("bad signature")
 		},
@@ -70,32 +69,30 @@ func TestUpdateToValidationFailure(t *testing.T) {
 	})
 
 	rel := &Release{
-		Asset:      Asset{ID: 1, Name: "app", URL: "https://example.com/app"},
-		repository: NewRepositorySlug("test", "repo"),
+		Asset:		Asset{ID: 1, Name: "app", URL: "https://example.com/app"},
+		repository:	NewRepositorySlug("test", "repo"),
 	}
 	err := up.UpdateTo(context.Background(), rel, "/tmp/test")
-	if err == nil {
-		t.Error("expected validation error")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestUpdateToDownloadError(t *testing.T) {
 	src := &mockSource{
-		assets: map[int64]string{}, // empty, will error
+		assets: map[int64]string{},	// empty, will error
 	}
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel := &Release{
-		Asset:      Asset{ID: 999, Name: "app", URL: "https://example.com/app"},
-		repository: NewRepositorySlug("test", "repo"),
+		Asset:		Asset{ID: 999, Name: "app", URL: "https://example.com/app"},
+		repository:	NewRepositorySlug("test", "repo"),
 	}
 	err := up.UpdateTo(context.Background(), rel, "/tmp/test")
-	if err == nil {
-		t.Error("expected download error")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestUpdateToWithDecompression(t *testing.T) {
@@ -106,8 +103,8 @@ func TestUpdateToWithDecompression(t *testing.T) {
 
 	var installed []byte
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		Install: func(r io.Reader, path string) error {
 			var err error
 			installed, err = io.ReadAll(r)
@@ -116,16 +113,14 @@ func TestUpdateToWithDecompression(t *testing.T) {
 	})
 
 	rel := &Release{
-		Asset:      Asset{ID: 1, Name: "app_linux_amd64.tar.gz", URL: "https://example.com/app.tar.gz"},
-		repository: NewRepositorySlug("test", "repo"),
+		Asset:		Asset{ID: 1, Name: "app_linux_amd64.tar.gz", URL: "https://example.com/app.tar.gz"},
+		repository:	NewRepositorySlug("test", "repo"),
 	}
 	err := up.UpdateTo(context.Background(), rel, "/usr/local/bin/myapp")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(installed) != "new binary" {
-		t.Errorf("unexpected installed content: %q", installed)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "new binary", string(installed))
+
 }
 
 func TestUpdateCommandNoRelease(t *testing.T) {
@@ -136,17 +131,15 @@ func TestUpdateCommandNoRelease(t *testing.T) {
 	os.WriteFile(cmdPath, []byte("old"), 0o755)
 
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel, err := up.UpdateCommand(context.Background(), cmdPath, "1.0.0", NewRepositorySlug("test", "repo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rel.Version.Version != "1.0.0" {
-		t.Errorf("expected current version returned, got %s", rel.Version.Version)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "1.0.0", rel.Version.Version)
+
 }
 
 func TestUpdateCommandAlreadyLatest(t *testing.T) {
@@ -161,33 +154,29 @@ func TestUpdateCommandAlreadyLatest(t *testing.T) {
 	os.WriteFile(cmdPath, []byte("old"), 0o755)
 
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel, err := up.UpdateCommand(context.Background(), cmdPath, "1.0.0", NewRepositorySlug("test", "repo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rel.Version.Version != "1.0.0" {
-		t.Errorf("expected 1.0.0 (already latest), got %s", rel.Version.Version)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "1.0.0", rel.Version.Version)
+
 }
 
 func TestUpdateCommandBadVersion(t *testing.T) {
 	up, _ := NewUpdater(Config{Platform: Platform{OS: "linux", Arch: "amd64"}})
 	_, err := up.UpdateCommand(context.Background(), "/tmp/x", "not-a-version", NewRepositorySlug("test", "repo"))
-	if err == nil {
-		t.Error("expected error for invalid version")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestUpdateCommandFileNotFound(t *testing.T) {
 	up, _ := NewUpdater(Config{Platform: Platform{OS: "linux", Arch: "amd64"}})
 	_, err := up.UpdateCommand(context.Background(), "/nonexistent/path", "1.0.0", NewRepositorySlug("test", "repo"))
-	if err == nil {
-		t.Error("expected error for missing file")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestUpdateCommandPerformsUpdate(t *testing.T) {
@@ -196,7 +185,7 @@ func TestUpdateCommandPerformsUpdate(t *testing.T) {
 		releases: []SourceRelease{
 			newTestRelease("v2.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64.tar.gz", size: 100, url: "https://example.com/app.tar.gz"}),
 		},
-		assets: map[int64]string{1: string(tarGz)},
+		assets:	map[int64]string{1: string(tarGz)},
 	}
 
 	tmpDir := t.TempDir()
@@ -205,8 +194,8 @@ func TestUpdateCommandPerformsUpdate(t *testing.T) {
 
 	var installedContent []byte
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		Install: func(r io.Reader, path string) error {
 			var err error
 			installedContent, err = io.ReadAll(r)
@@ -215,21 +204,18 @@ func TestUpdateCommandPerformsUpdate(t *testing.T) {
 	})
 
 	rel, err := up.UpdateCommand(context.Background(), cmdPath, "1.0.0", NewRepositorySlug("test", "repo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rel.Version.Version != "2.0.0" {
-		t.Errorf("expected 2.0.0, got %s", rel.Version.Version)
-	}
-	if string(installedContent) != "new binary v2" {
-		t.Errorf("unexpected installed content: %q", installedContent)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "2.0.0", rel.Version.Version)
+
+	assert.Equal(t, "new binary v2", string(installedContent))
+
 }
 
 func TestDecompressAndInstall(t *testing.T) {
 	var installPath string
 	up, _ := NewUpdater(Config{
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		Install: func(r io.Reader, path string) error {
 			installPath = path
 			return nil
@@ -242,12 +228,10 @@ func TestDecompressAndInstall(t *testing.T) {
 		"https://example.com/myapp",
 		"/usr/local/bin/myapp",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if installPath != "/usr/local/bin/myapp" {
-		t.Errorf("unexpected install path: %s", installPath)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "/usr/local/bin/myapp", installPath)
+
 }
 
 func TestDownload(t *testing.T) {
@@ -255,32 +239,29 @@ func TestDownload(t *testing.T) {
 		assets: map[int64]string{42: "downloaded bytes"},
 	}
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel := &Release{repository: NewRepositorySlug("test", "repo")}
 	data, err := up.download(context.Background(), rel, 42)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "downloaded bytes" {
-		t.Errorf("unexpected: %q", data)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "downloaded bytes", string(data))
+
 }
 
 func TestDownloadError(t *testing.T) {
 	src := &mockSource{assets: map[int64]string{}}
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel := &Release{repository: NewRepositorySlug("test", "repo")}
 	_, err := up.download(context.Background(), rel, 999)
-	if err == nil {
-		t.Error("expected error for missing asset")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestUpdateCommandCustomCompare(t *testing.T) {
@@ -288,7 +269,7 @@ func TestUpdateCommandCustomCompare(t *testing.T) {
 		releases: []SourceRelease{
 			newTestRelease("v2.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64.tar.gz", size: 100, url: "https://example.com/app.tar.gz"}),
 		},
-		assets: map[int64]string{1: "binary"},
+		assets:	map[int64]string{1: "binary"},
 	}
 
 	tmpDir := t.TempDir()
@@ -297,21 +278,19 @@ func TestUpdateCommandCustomCompare(t *testing.T) {
 
 	// Custom compare that says nothing is newer
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		CompareVersions: func(current, candidate Version) bool {
 			return false
 		},
 	})
 
 	rel, err := up.UpdateCommand(context.Background(), cmdPath, "1.0.0", NewRepositorySlug("test", "repo"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
+
 	// Should return latest but not update
-	if rel.Version.Version != "2.0.0" {
-		t.Errorf("expected 2.0.0, got %s", rel.Version.Version)
-	}
+	assert.Equal(t, "2.0.0", rel.Version.Version)
+
 }
 
 func TestUpdateCommandSourceError(t *testing.T) {
@@ -322,27 +301,25 @@ func TestUpdateCommandSourceError(t *testing.T) {
 	os.WriteFile(cmdPath, []byte("old"), 0o755)
 
 	up, _ := NewUpdater(Config{
-		Source:   src,
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	_, err := up.UpdateCommand(context.Background(), cmdPath, "1.0.0", NewRepositorySlug("test", "repo"))
-	if err == nil {
-		t.Error("expected error from source")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestPackageLevelDownloadReleaseAssetFromURL(t *testing.T) {
 	// Just test the error path since we can't easily test success without a real server
 	_, err := downloadReleaseAssetFromURL(context.Background(), "http://[invalid-url")
-	if err == nil {
-		t.Error("expected error for invalid URL")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDecompressAndInstallError(t *testing.T) {
 	up, _ := NewUpdater(Config{
-		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
 		Install: func(r io.Reader, path string) error {
 			return nil
 		},
@@ -355,7 +332,6 @@ func TestDecompressAndInstallError(t *testing.T) {
 		"https://example.com/app.tar.gz",
 		"/usr/local/bin/app",
 	)
-	if err == nil {
-		t.Error("expected decompression error")
-	}
+	assert.NotNil(t, err)
+
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"github.com/wow-look-at-my/testify/assert"
+	"github.com/wow-look-at-my/testify/require"
 )
 
 func TestDefaultInstall(t *testing.T) {
@@ -14,23 +16,18 @@ func TestDefaultInstall(t *testing.T) {
 
 	install := defaultInstall("")
 	err := install(strings.NewReader("new binary"), target)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 
 	data, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "new binary" {
-		t.Errorf("expected new binary, got %q", data)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "new binary", string(data))
 
 	// old file should be cleaned up
 	oldPath := filepath.Join(tmpDir, ".myapp.old")
-	if _, err := os.Stat(oldPath); err == nil {
-		t.Error("old file should have been removed")
-	}
+	_, err = os.Stat(oldPath)
+	assert.NotNil(t, err)
+
 }
 
 func TestDefaultInstallWithOldSavePath(t *testing.T) {
@@ -41,24 +38,18 @@ func TestDefaultInstallWithOldSavePath(t *testing.T) {
 
 	install := defaultInstall(oldSave)
 	err := install(strings.NewReader("new binary"), target)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 
 	// new binary in place
 	data, _ := os.ReadFile(target)
-	if string(data) != "new binary" {
-		t.Errorf("expected new binary, got %q", data)
-	}
+	assert.Equal(t, "new binary", string(data))
 
 	// old binary saved
 	data, err = os.ReadFile(oldSave)
-	if err != nil {
-		t.Fatal("old save file should exist")
-	}
-	if string(data) != "old binary" {
-		t.Errorf("expected old binary in save path, got %q", data)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "old binary", string(data))
+
 }
 
 func TestDefaultInstallTargetNotExist(t *testing.T) {
@@ -67,15 +58,13 @@ func TestDefaultInstallTargetNotExist(t *testing.T) {
 
 	install := defaultInstall("")
 	err := install(strings.NewReader("new binary"), target)
-	if err == nil {
-		t.Error("expected error when target doesn't exist for rename")
-	}
+	assert.NotNil(t, err)
+
 }
 
 func TestDefaultInstallBadDirectory(t *testing.T) {
 	install := defaultInstall("")
 	err := install(strings.NewReader("data"), "/nonexistent/dir/myapp")
-	if err == nil {
-		t.Error("expected error for bad directory")
-	}
+	assert.NotNil(t, err)
+
 }

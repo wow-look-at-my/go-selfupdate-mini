@@ -3,73 +3,61 @@ package selfupdate
 import (
 	"io"
 	"testing"
+	"github.com/wow-look-at-my/testify/assert"
+	"github.com/wow-look-at-my/testify/require"
 )
 
 func TestNewUpdaterDefaults(t *testing.T) {
 	up, err := NewUpdater(Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if up.platform.OS == "" {
-		t.Error("OS should default to runtime.GOOS")
-	}
-	if up.platform.Arch == "" {
-		t.Error("Arch should default to runtime.GOARCH")
-	}
-	if up.source == nil {
-		t.Error("source should default to GitHubSource")
-	}
-	if up.install == nil {
-		t.Error("install should have default handler")
-	}
-	if len(up.decompressors) == 0 {
-		t.Error("decompressors should have builtins")
-	}
+	require.Nil(t, err)
+
+	assert.NotEqual(t, "", up.platform.OS)
+
+	assert.NotEqual(t, "", up.platform.Arch)
+
+	assert.NotNil(t, up.source)
+
+	assert.NotNil(t, up.install)
+
+	assert.NotEqual(t, 0, len(up.decompressors))
+
 }
 
 func TestNewUpdaterCustomPlatform(t *testing.T) {
 	up, err := NewUpdater(Config{
 		Platform: Platform{OS: "darwin", Arch: "arm64"},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if up.platform.OS != "darwin" {
-		t.Errorf("expected darwin, got %s", up.platform.OS)
-	}
-	if up.platform.Arch != "arm64" {
-		t.Errorf("expected arm64, got %s", up.platform.Arch)
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, "darwin", up.platform.OS)
+
+	assert.Equal(t, "arm64", up.platform.Arch)
+
 }
 
 func TestNewUpdaterUniversalArch(t *testing.T) {
 	up, _ := NewUpdater(Config{
-		Platform:      Platform{OS: "darwin", Arch: "amd64"},
-		UniversalArch: "universal",
+		Platform:	Platform{OS: "darwin", Arch: "amd64"},
+		UniversalArch:	"universal",
 	})
-	if up.universalArch != "universal" {
-		t.Error("universalArch should be set for darwin")
-	}
+	assert.Equal(t, "universal", up.universalArch)
 
 	up, _ = NewUpdater(Config{
-		Platform:      Platform{OS: "linux", Arch: "amd64"},
-		UniversalArch: "universal",
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
+		UniversalArch:	"universal",
 	})
-	if up.universalArch != "" {
-		t.Error("universalArch should be empty for non-darwin")
-	}
+	assert.Equal(t, "", up.universalArch)
+
 }
 
 func TestNewUpdaterFilters(t *testing.T) {
 	up, err := NewUpdater(Config{
 		Filters: []string{"linux", "amd64"},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(up.filters) != 2 {
-		t.Errorf("expected 2 filters, got %d", len(up.filters))
-	}
+	require.Nil(t, err)
+
+	assert.Equal(t, 2, len(up.filters))
+
 }
 
 func TestNewUpdaterCustomDecompressors(t *testing.T) {
@@ -79,13 +67,13 @@ func TestNewUpdaterCustomDecompressors(t *testing.T) {
 	up, _ := NewUpdater(Config{
 		Decompressors: map[string]Decompressor{".zst": custom},
 	})
-	if _, ok := up.decompressors[".zst"]; !ok {
-		t.Error("custom decompressor should be registered")
-	}
+	_, ok := up.decompressors[".zst"]
+	assert.True(t, ok)
+
 	// builtins should still exist
-	if _, ok := up.decompressors[".zip"]; !ok {
-		t.Error("builtin .zip should still exist")
-	}
+	_, ok = up.decompressors[".zip"]
+	assert.True(t, ok)
+
 }
 
 func TestNewUpdaterCustomInstall(t *testing.T) {
@@ -97,9 +85,8 @@ func TestNewUpdaterCustomInstall(t *testing.T) {
 		},
 	})
 	up.install(nil, "")
-	if !called {
-		t.Error("custom install should be used")
-	}
+	assert.True(t, called)
+
 }
 
 func TestNewUpdaterCallbacks(t *testing.T) {
@@ -117,14 +104,11 @@ func TestNewUpdaterCallbacks(t *testing.T) {
 	})
 
 	up.validate(&Release{}, nil)
-	if !validateCalled {
-		t.Error("validate callback should be stored")
-	}
+	assert.True(t, validateCalled)
 
 	up.compareVersions(Version{}, Version{})
-	if !compareCalled {
-		t.Error("compareVersions callback should be stored")
-	}
+	assert.True(t, compareCalled)
+
 }
 
 func TestDefaultUpdater(t *testing.T) {
@@ -134,7 +118,6 @@ func TestDefaultUpdater(t *testing.T) {
 
 	up1 := DefaultUpdater()
 	up2 := DefaultUpdater()
-	if up1 != up2 {
-		t.Error("DefaultUpdater should return same instance")
-	}
+	assert.Equal(t, up2, up1)
+
 }
