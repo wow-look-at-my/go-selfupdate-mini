@@ -1,4 +1,4 @@
-module wow-look-at-my.download/selfupdate-mini
+module github.com/wow-look-at-my/go-selfupdate-mini
 
 go 1.22
 
