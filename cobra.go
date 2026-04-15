@@ -3,6 +3,7 @@ package selfupdate
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -44,7 +45,8 @@ func newUpdaterFromConfig(cfg commandConfig) (*Updater, error) {
 //
 // Usage: <program> install [path]
 //
-// If path is omitted, the binary is installed to /usr/local/bin/<repo>.
+// If path is omitted, the binary is installed to $HOME/.local/bin/<repo>
+// (the XDG user-local convention; writable without sudo).
 // Use --version to install a specific version instead of the latest.
 func NewInstallCommand(repository Repository, opts ...CommandOption) *cobra.Command {
 	var version string
@@ -82,6 +84,10 @@ func NewInstallCommand(repository Repository, opts ...CommandOption) *cobra.Comm
 			cmdPath, err := installPath(repository, args)
 			if err != nil {
 				return err
+			}
+
+			if err := os.MkdirAll(filepath.Dir(cmdPath), 0o755); err != nil {
+				return fmt.Errorf("create install directory: %w", err)
 			}
 
 			if err := up.UpdateTo(ctx, rel, cmdPath); err != nil {
@@ -182,6 +188,7 @@ func detectVersion(ctx context.Context, up *Updater, repository Repository, vers
 }
 
 // installPath determines the destination path for the install command.
+// An explicit args[0] wins; otherwise default to $HOME/.local/bin/<repo>.
 func installPath(repository Repository, args []string) (string, error) {
 	if len(args) > 0 {
 		return args[0], nil
@@ -190,5 +197,9 @@ func installPath(repository Repository, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join("/usr/local/bin", repo), nil
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return filepath.Join(home, ".local", "bin", repo), nil
 }
