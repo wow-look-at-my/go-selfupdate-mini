@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -148,9 +149,12 @@ func TestNewInstallCommandDefaultPath(t *testing.T) {
 	cmd.SetContext(context.Background())
 	cmd.SetOut(&bytes.Buffer{})
 
-	err := cmd.Execute()
+	home, err := os.UserHomeDir()
 	require.Nil(t, err)
-	assert.Equal(t, "/usr/local/bin/myapp", installDst)
+
+	err = cmd.Execute()
+	require.Nil(t, err)
+	assert.Equal(t, filepath.Join(home, ".local", "bin", "myapp"), installDst)
 }
 
 func TestNewUpdateCommandWithVersion(t *testing.T) {
@@ -236,7 +240,9 @@ func TestInstallPathDefault(t *testing.T) {
 	repo := NewRepositorySlug("test", "myapp")
 	path, err := installPath(repo, nil)
 	require.Nil(t, err)
-	assert.Equal(t, "/usr/local/bin/myapp", path)
+	home, herr := os.UserHomeDir()
+	require.Nil(t, herr)
+	assert.Equal(t, filepath.Join(home, ".local", "bin", "myapp"), path)
 }
 
 func TestInstallPathInvalidSlug(t *testing.T) {
