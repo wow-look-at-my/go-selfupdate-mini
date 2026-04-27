@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -143,6 +144,79 @@ func NewUpdateCommand(repository Repository, currentVersion string, opts ...Comm
 
 	cmd.Flags().StringVar(&version, "version", "", "update to a specific version instead of latest")
 	return cmd
+}
+
+// NewVersionCommand returns a *cobra.Command that shows version information.
+//
+// Usage: <program> version [--bare]
+//
+// Without --bare it prints the current version, the latest available version,
+// and how long ago the latest release was published.  With --bare it prints
+// only the current version string (useful for scripting).
+//
+// To also handle `<program> --version`, set rootCmd.Version = currentVersion
+// before adding this command.
+func NewVersionCommand(currentVersion string, repository Repository, opts ...CommandOption) *cobra.Command {
+	var bare bool
+
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Show version information",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			out := cmd.OutOrStdout()
+			if bare {
+				fmt.Fprintln(out, currentVersion)
+				return nil
+			}
+
+			cfg := applyOptions(opts)
+			up, err := newUpdaterFromConfig(cfg)
+			if err != nil {
+				return err
+			}
+
+			latest, found, err := up.DetectLatest(cmd.Context(), repository)
+			if err != nil || !found {
+				fmt.Fprintf(out, "version: %s\n", currentVersion)
+				return nil
+			}
+
+			age := humanizeAge(time.Since(latest.PublishedAt))
+			if latest.Version.Version == currentVersion {
+				fmt.Fprintf(out, "version: %s (latest, released %s)\n", currentVersion, age)
+			} else {
+				fmt.Fprintf(out, "version: %s\n", currentVersion)
+				fmt.Fprintf(out, "latest:  %s (released %s)\n", latest.Version.Version, age)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&bare, "bare", false, "print only the version string")
+	return cmd
+}
+
+// humanizeAge converts a duration into a human-readable relative string such
+// as "3 days ago", "2 weeks ago", or "1 month ago".
+func humanizeAge(d time.Duration) string {
+	days := int(d.Hours() / 24)
+	switch {
+	case days < 1:
+		return "today"
+	case days == 1:
+		return "1 day ago"
+	case days < 14:
+		return fmt.Sprintf("%d days ago", days)
+	case days < 30:
+		return fmt.Sprintf("%d weeks ago", days/7)
+	default:
+		months := days / 30
+		if months == 1 {
+			return "1 month ago"
+		}
+		return fmt.Sprintf("%d months ago", months)
+	}
 }
 
 func updateToVersion(ctx context.Context, cmd *cobra.Command, up *Updater, repository Repository, version string) error {
