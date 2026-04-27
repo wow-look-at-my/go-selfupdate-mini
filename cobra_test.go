@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/wow-look-at-my/testify/assert"
 	"github.com/wow-look-at-my/testify/require"
 )
@@ -259,4 +261,129 @@ func TestApplyOptions(t *testing.T) {
 	cfg = applyOptions([]CommandOption{WithConfig(custom)})
 	require.NotNil(t, cfg.config)
 	assert.Equal(t, "darwin", cfg.config.Platform.OS)
+}
+
+func TestNewVersionCommandBare(t *testing.T) {
+	repo := NewRepositorySlug("test", "myapp")
+	cmd := NewVersionCommand("1.0.0", repo)
+	cmd.SetArgs([]string{"--bare"})
+	cmd.SetContext(context.Background())
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	err := cmd.Execute()
+	require.Nil(t, err)
+	assert.Equal(t, "1.0.0\n", out.String())
+}
+
+func TestNewVersionCommandUpToDate(t *testing.T) {
+	rel := newTestRelease("v1.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64", size: 100, url: "https://example.com/myapp"})
+	rel.publishedAt = time.Now().Add(-21 * 24 * time.Hour)
+
+	src := &mockSource{releases: []SourceRelease{rel}}
+	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
+
+	repo := NewRepositorySlug("test", "myapp")
+	cmd := NewVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd.SetContext(context.Background())
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	err := cmd.Execute()
+	require.Nil(t, err)
+	output := out.String()
+	assert.Contains(t, output, "1.0.0")
+	assert.Contains(t, output, "latest")
+	assert.Contains(t, output, "3 weeks ago")
+}
+
+func TestNewVersionCommandOutdated(t *testing.T) {
+	rel := newTestRelease("v2.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64", size: 100, url: "https://example.com/myapp"})
+	rel.publishedAt = time.Now().Add(-14 * 24 * time.Hour)
+
+	src := &mockSource{releases: []SourceRelease{rel}}
+	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
+
+	repo := NewRepositorySlug("test", "myapp")
+	cmd := NewVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd.SetContext(context.Background())
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	err := cmd.Execute()
+	require.Nil(t, err)
+	output := out.String()
+	assert.Contains(t, output, "1.0.0")
+	assert.Contains(t, output, "2.0.0")
+	assert.Contains(t, output, "2 weeks ago")
+}
+
+func TestNewVersionCommandNetworkError(t *testing.T) {
+	src := &mockSource{err: fmt.Errorf("network failure")}
+	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
+
+	repo := NewRepositorySlug("test", "myapp")
+	cmd := NewVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd.SetContext(context.Background())
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	err := cmd.Execute()
+	require.Nil(t, err)
+	assert.Equal(t, "version: 1.0.0\n", out.String())
+}
+
+func TestHumanizeAge(t *testing.T) {
+	tests := []struct {
+		days     int
+		expected string
+	}{
+		{0, "today"},
+		{1, "1 day ago"},
+		{5, "5 days ago"},
+		{13, "13 days ago"},
+		{14, "2 weeks ago"},
+		{21, "3 weeks ago"},
+		{29, "4 weeks ago"},
+		{30, "1 month ago"},
+		{60, "2 months ago"},
+		{90, "3 months ago"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			d := time.Duration(tt.days) * 24 * time.Hour
+			assert.Equal(t, tt.expected, humanizeAge(d))
+		})
+	}
+}
+
+func TestRegisterCommands(t *testing.T) {
+	src := &mockSource{
+		releases: []SourceRelease{
+			newTestRelease("v1.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64", size: 100, url: "https://example.com/myapp"}),
+		},
+	}
+	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
+
+	rootCmd := &cobra.Command{Use: "myapp"}
+	repo := NewRepositorySlug("test", "myapp")
+	RegisterCommands(rootCmd, "1.0.0", repo, WithConfig(cfg))
+
+	// Check that Version is set
+	assert.Equal(t, "1.0.0", rootCmd.Version)
+
+	// Check that commands are registered
+	cmd, _, err := rootCmd.Find([]string{"version"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "version", cmd.Name())
+
+	cmd, _, err = rootCmd.Find([]string{"update"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "update", cmd.Name())
 }
