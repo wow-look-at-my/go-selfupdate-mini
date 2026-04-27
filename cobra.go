@@ -13,11 +13,13 @@ import (
 
 // RegisterCommands registers the version and update commands on the root command
 // and sets the --version flag. This is the recommended way to integrate selfupdate
-// into your CLI app — call once and everything is wired up.
+// into your CLI app — one call wires up the entire self-update flow.
 //
 // Usage in main:
 //
 //	selfupdate.RegisterCommands(rootCmd, "1.0.0", selfupdate.ParseSlug("owner/repo"))
+//
+// For install-to-path workflows (bootstrap tooling), use NewInstallCommand directly.
 func RegisterCommands(rootCmd *cobra.Command, currentVersion string, repository Repository, opts ...CommandOption) {
 	rootCmd.Version = currentVersion
 	rootCmd.AddCommand(NewVersionCommand(currentVersion, repository, opts...))
@@ -164,11 +166,10 @@ func NewUpdateCommand(repository Repository, currentVersion string, opts ...Comm
 // Usage: <program> version [--bare]
 //
 // Without --bare it prints the current version, the latest available version,
-// and how long ago the latest release was published.  With --bare it prints
+// and how long ago the latest release was published. With --bare it prints
 // only the current version string (useful for scripting).
 //
-// To also handle `<program> --version`, set rootCmd.Version = currentVersion
-// before adding this command.
+// Recommended: use RegisterCommands instead to wire up version, update, and --version automatically.
 func NewVersionCommand(currentVersion string, repository Repository, opts ...CommandOption) *cobra.Command {
 	var bare bool
 
