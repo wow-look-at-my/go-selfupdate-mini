@@ -11,6 +11,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RegisterCommands registers all self-update commands (version, update, install) on the root
+// command and sets the --version flag. This is the recommended way to integrate selfupdate
+// into your CLI app — call once and everything is wired up.
+//
+// Usage in main:
+//
+//	selfupdate.RegisterCommands(rootCmd, "1.0.0", selfupdate.ParseSlug("owner/repo"))
+func RegisterCommands(rootCmd *cobra.Command, currentVersion string, repository Repository, opts ...CommandOption) {
+	rootCmd.Version = currentVersion
+	rootCmd.AddCommand(NewVersionCommand(currentVersion, repository, opts...))
+	rootCmd.AddCommand(NewUpdateCommand(repository, currentVersion, opts...))
+	rootCmd.AddCommand(NewInstallCommand(repository, opts...))
+}
+
 // commandConfig holds shared configuration for cobra commands.
 type commandConfig struct {
 	config *Config

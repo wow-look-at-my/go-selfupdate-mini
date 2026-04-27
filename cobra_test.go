@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/wow-look-at-my/testify/assert"
 	"github.com/wow-look-at-my/testify/require"
 )
@@ -358,4 +359,36 @@ func TestHumanizeAge(t *testing.T) {
 			assert.Equal(t, tt.expected, humanizeAge(d))
 		})
 	}
+}
+
+func TestRegisterCommands(t *testing.T) {
+	src := &mockSource{
+		releases: []SourceRelease{
+			newTestRelease("v1.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64", size: 100, url: "https://example.com/myapp"}),
+		},
+	}
+	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
+
+	rootCmd := &cobra.Command{Use: "myapp"}
+	repo := NewRepositorySlug("test", "myapp")
+	RegisterCommands(rootCmd, "1.0.0", repo, WithConfig(cfg))
+
+	// Check that Version is set
+	assert.Equal(t, "1.0.0", rootCmd.Version)
+
+	// Check that commands are registered
+	cmd, _, err := rootCmd.Find([]string{"version"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "version", cmd.Name())
+
+	cmd, _, err = rootCmd.Find([]string{"update"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "update", cmd.Name())
+
+	cmd, _, err = rootCmd.Find([]string{"install"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "install", cmd.Name())
 }
