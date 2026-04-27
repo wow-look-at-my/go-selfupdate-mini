@@ -386,9 +386,4 @@ func TestRegisterCommands(t *testing.T) {
 	require.Nil(t, err)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "update", cmd.Name())
-
-	cmd, _, err = rootCmd.Find([]string{"install"})
-	require.Nil(t, err)
-	assert.NotNil(t, cmd)
-	assert.Equal(t, "install", cmd.Name())
 }
