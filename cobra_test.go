@@ -36,7 +36,7 @@ func TestNewInstallCommandLatest(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "repo")
-	cmd := NewInstallCommand(repo, WithConfig(cfg))
+	cmd := newInstallCommand(repo, WithConfig(cfg))
 
 	dest := filepath.Join(t.TempDir(), "repo")
 	cmd.SetArgs([]string{dest})
@@ -71,7 +71,7 @@ func TestNewInstallCommandSpecificVersion(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "repo")
-	cmd := NewInstallCommand(repo, WithConfig(cfg))
+	cmd := newInstallCommand(repo, WithConfig(cfg))
 
 	dest := filepath.Join(t.TempDir(), "repo")
 	cmd.SetArgs([]string{"--version", "2.0.0", dest})
@@ -98,7 +98,7 @@ func TestNewInstallCommandVersionNotFound(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "repo")
-	cmd := NewInstallCommand(repo, WithConfig(cfg))
+	cmd := newInstallCommand(repo, WithConfig(cfg))
 	cmd.SetArgs([]string{"--version", "9.9.9", "/tmp/repo"})
 	cmd.SetContext(context.Background())
 
@@ -116,7 +116,7 @@ func TestNewInstallCommandNoRelease(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "repo")
-	cmd := NewInstallCommand(repo, WithConfig(cfg))
+	cmd := newInstallCommand(repo, WithConfig(cfg))
 	cmd.SetArgs([]string{"/tmp/repo"})
 	cmd.SetContext(context.Background())
 
@@ -146,7 +146,7 @@ func TestNewInstallCommandDefaultPath(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewInstallCommand(repo, WithConfig(cfg))
+	cmd := newInstallCommand(repo, WithConfig(cfg))
 	cmd.SetArgs([]string{})
 	cmd.SetContext(context.Background())
 	cmd.SetOut(&bytes.Buffer{})
@@ -179,7 +179,7 @@ func TestNewUpdateCommandWithVersion(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewUpdateCommand(repo, "1.0.0", WithConfig(cfg))
+	cmd := newUpdateCommand(repo, "1.0.0", WithConfig(cfg))
 	cmd.SetArgs([]string{"--version", "2.0.0"})
 	cmd.SetContext(context.Background())
 
@@ -205,7 +205,7 @@ func TestNewUpdateCommandVersionNotFound(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewUpdateCommand(repo, "1.0.0", WithConfig(cfg))
+	cmd := newUpdateCommand(repo, "1.0.0", WithConfig(cfg))
 	cmd.SetArgs([]string{"--version", "9.9.9"})
 	cmd.SetContext(context.Background())
 
@@ -223,7 +223,7 @@ func TestNewUpdateCommandSourceError(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewUpdateCommand(repo, "1.0.0", WithConfig(cfg))
+	cmd := newUpdateCommand(repo, "1.0.0", WithConfig(cfg))
 	cmd.SetArgs([]string{"--version", "2.0.0"})
 	cmd.SetContext(context.Background())
 
@@ -265,7 +265,7 @@ func TestApplyOptions(t *testing.T) {
 
 func TestNewVersionCommandBare(t *testing.T) {
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewVersionCommand("1.0.0", repo)
+	cmd := newVersionCommand("1.0.0", repo)
 	cmd.SetArgs([]string{"--bare"})
 	cmd.SetContext(context.Background())
 
@@ -285,7 +285,7 @@ func TestNewVersionCommandUpToDate(t *testing.T) {
 	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd := newVersionCommand("1.0.0", repo, WithConfig(cfg))
 	cmd.SetContext(context.Background())
 
 	var out bytes.Buffer
@@ -307,7 +307,7 @@ func TestNewVersionCommandOutdated(t *testing.T) {
 	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd := newVersionCommand("1.0.0", repo, WithConfig(cfg))
 	cmd.SetContext(context.Background())
 
 	var out bytes.Buffer
@@ -326,7 +326,7 @@ func TestNewVersionCommandNetworkError(t *testing.T) {
 	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := NewVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd := newVersionCommand("1.0.0", repo, WithConfig(cfg))
 	cmd.SetContext(context.Background())
 
 	var out bytes.Buffer
@@ -373,10 +373,8 @@ func TestRegisterCommands(t *testing.T) {
 	repo := NewRepositorySlug("test", "myapp")
 	RegisterCommands(rootCmd, "1.0.0", repo, WithConfig(cfg))
 
-	// Check that Version is set
 	assert.Equal(t, "1.0.0", rootCmd.Version)
 
-	// Check that commands are registered
 	cmd, _, err := rootCmd.Find([]string{"version"})
 	require.Nil(t, err)
 	assert.NotNil(t, cmd)
@@ -386,4 +384,9 @@ func TestRegisterCommands(t *testing.T) {
 	require.Nil(t, err)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "update", cmd.Name())
+
+	cmd, _, err = rootCmd.Find([]string{"install"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "install", cmd.Name())
 }

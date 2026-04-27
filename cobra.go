@@ -11,17 +11,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RegisterCommands registers the version and update commands on the root command
-// and sets the --version flag. This is the recommended way to integrate selfupdate
-// into your CLI app — call once and everything is wired up.
+// RegisterCommands registers the version, update, and install commands on the
+// root command and sets the --version flag. This is the only supported way to
+// integrate selfupdate into your CLI app — call once and everything is wired up.
 //
 // Usage in main:
 //
 //	selfupdate.RegisterCommands(rootCmd, "1.0.0", selfupdate.ParseSlug("owner/repo"))
 func RegisterCommands(rootCmd *cobra.Command, currentVersion string, repository Repository, opts ...CommandOption) {
 	rootCmd.Version = currentVersion
-	rootCmd.AddCommand(NewVersionCommand(currentVersion, repository, opts...))
-	rootCmd.AddCommand(NewUpdateCommand(repository, currentVersion, opts...))
+	rootCmd.AddCommand(newVersionCommand(currentVersion, repository, opts...))
+	rootCmd.AddCommand(newUpdateCommand(repository, currentVersion, opts...))
+	rootCmd.AddCommand(newInstallCommand(repository, opts...))
 }
 
 // commandConfig holds shared configuration for cobra commands.
@@ -29,7 +30,7 @@ type commandConfig struct {
 	config *Config
 }
 
-// CommandOption configures the cobra commands returned by NewInstallCommand and NewUpdateCommand.
+// CommandOption configures the cobra commands registered by RegisterCommands.
 type CommandOption func(*commandConfig)
 
 // WithConfig sets a custom Config for the underlying Updater.
@@ -54,15 +55,7 @@ func newUpdaterFromConfig(cfg commandConfig) (*Updater, error) {
 	return NewUpdater(Config{})
 }
 
-// NewInstallCommand returns a *cobra.Command that downloads a release from the
-// repository and installs it to a given path.
-//
-// Usage: <program> install [path]
-//
-// If path is omitted, the binary is installed to $HOME/.local/bin/<repo>
-// (the XDG user-local convention; writable without sudo).
-// Use --version to install a specific version instead of the latest.
-func NewInstallCommand(repository Repository, opts ...CommandOption) *cobra.Command {
+func newInstallCommand(repository Repository, opts ...CommandOption) *cobra.Command {
 	var version string
 
 	cmd := &cobra.Command{
@@ -116,13 +109,7 @@ func NewInstallCommand(repository Repository, opts ...CommandOption) *cobra.Comm
 	return cmd
 }
 
-// NewUpdateCommand returns a *cobra.Command that updates the running binary
-// in-place to the latest (or a specific) version.
-//
-// Usage: <program> update
-//
-// Use --version to update to a specific version instead of the latest.
-func NewUpdateCommand(repository Repository, currentVersion string, opts ...CommandOption) *cobra.Command {
+func newUpdateCommand(repository Repository, currentVersion string, opts ...CommandOption) *cobra.Command {
 	var version string
 
 	cmd := &cobra.Command{
@@ -159,17 +146,7 @@ func NewUpdateCommand(repository Repository, currentVersion string, opts ...Comm
 	return cmd
 }
 
-// NewVersionCommand returns a *cobra.Command that shows version information.
-//
-// Usage: <program> version [--bare]
-//
-// Without --bare it prints the current version, the latest available version,
-// and how long ago the latest release was published.  With --bare it prints
-// only the current version string (useful for scripting).
-//
-// To also handle `<program> --version`, set rootCmd.Version = currentVersion
-// before adding this command.
-func NewVersionCommand(currentVersion string, repository Repository, opts ...CommandOption) *cobra.Command {
+func newVersionCommand(currentVersion string, repository Repository, opts ...CommandOption) *cobra.Command {
 	var bare bool
 
 	cmd := &cobra.Command{
