@@ -179,7 +179,7 @@ func TestNewUpdateCommandWithVersion(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newUpdateCommand(repo, "1.0.0", WithConfig(cfg))
+	cmd := newUpdateCommand(repo, WithConfig(cfg), WithVersion("1.0.0"))
 	cmd.SetArgs([]string{"--version", "2.0.0"})
 	cmd.SetContext(context.Background())
 
@@ -205,7 +205,7 @@ func TestNewUpdateCommandVersionNotFound(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newUpdateCommand(repo, "1.0.0", WithConfig(cfg))
+	cmd := newUpdateCommand(repo, WithConfig(cfg), WithVersion("1.0.0"))
 	cmd.SetArgs([]string{"--version", "9.9.9"})
 	cmd.SetContext(context.Background())
 
@@ -223,7 +223,7 @@ func TestNewUpdateCommandSourceError(t *testing.T) {
 	}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newUpdateCommand(repo, "1.0.0", WithConfig(cfg))
+	cmd := newUpdateCommand(repo, WithConfig(cfg), WithVersion("1.0.0"))
 	cmd.SetArgs([]string{"--version", "2.0.0"})
 	cmd.SetContext(context.Background())
 
@@ -256,16 +256,19 @@ func TestInstallPathInvalidSlug(t *testing.T) {
 func TestApplyOptions(t *testing.T) {
 	cfg := applyOptions(nil)
 	assert.Nil(t, cfg.config)
+	// currentVersion always resolves to something non-empty (CurrentVersion fallback).
+	assert.NotEqual(t, "", cfg.currentVersion)
 
 	custom := Config{Platform: Platform{OS: "darwin", Arch: "arm64"}}
-	cfg = applyOptions([]CommandOption{WithConfig(custom)})
+	cfg = applyOptions([]CommandOption{WithConfig(custom), WithVersion("3.2.1")})
 	require.NotNil(t, cfg.config)
 	assert.Equal(t, "darwin", cfg.config.Platform.OS)
+	assert.Equal(t, "3.2.1", cfg.currentVersion)
 }
 
 func TestNewVersionCommandBare(t *testing.T) {
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newVersionCommand("1.0.0", repo)
+	cmd := newVersionCommand(repo, WithVersion("1.0.0"))
 	cmd.SetArgs([]string{"--bare"})
 	cmd.SetContext(context.Background())
 
@@ -285,7 +288,7 @@ func TestNewVersionCommandUpToDate(t *testing.T) {
 	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd := newVersionCommand(repo, WithConfig(cfg), WithVersion("1.0.0"))
 	cmd.SetContext(context.Background())
 
 	var out bytes.Buffer
@@ -307,7 +310,7 @@ func TestNewVersionCommandOutdated(t *testing.T) {
 	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd := newVersionCommand(repo, WithConfig(cfg), WithVersion("1.0.0"))
 	cmd.SetContext(context.Background())
 
 	var out bytes.Buffer
@@ -326,7 +329,7 @@ func TestNewVersionCommandNetworkError(t *testing.T) {
 	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
 
 	repo := NewRepositorySlug("test", "myapp")
-	cmd := newVersionCommand("1.0.0", repo, WithConfig(cfg))
+	cmd := newVersionCommand(repo, WithConfig(cfg), WithVersion("1.0.0"))
 	cmd.SetContext(context.Background())
 
 	var out bytes.Buffer
@@ -335,6 +338,42 @@ func TestNewVersionCommandNetworkError(t *testing.T) {
 	err := cmd.Execute()
 	require.Nil(t, err)
 	assert.Equal(t, "version: 1.0.0\n", out.String())
+}
+
+func TestNewVersionCommandAutoDetect(t *testing.T) {
+	// With no WithVersion option and Version unset, the bare version flag falls
+	// back to CurrentVersion(), which during tests resolves to a non-empty
+	// build-info-derived value (devel pseudo-version or VCS revision).
+	repo := NewRepositorySlug("test", "myapp")
+	cmd := newVersionCommand(repo)
+	cmd.SetArgs([]string{"--bare"})
+	cmd.SetContext(context.Background())
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	err := cmd.Execute()
+	require.Nil(t, err)
+	assert.NotEqual(t, "\n", out.String())
+	assert.NotEqual(t, "", out.String())
+}
+
+func TestNewVersionCommandUsesPackageVersion(t *testing.T) {
+	prev := EmbeddedVersion
+	EmbeddedVersion = "9.9.9-test"
+	t.Cleanup(func() { EmbeddedVersion = prev })
+
+	repo := NewRepositorySlug("test", "myapp")
+	cmd := newVersionCommand(repo)
+	cmd.SetArgs([]string{"--bare"})
+	cmd.SetContext(context.Background())
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	err := cmd.Execute()
+	require.Nil(t, err)
+	assert.Equal(t, "9.9.9-test\n", out.String())
 }
 
 func TestHumanizeAge(t *testing.T) {
@@ -371,7 +410,7 @@ func TestRegisterCommands(t *testing.T) {
 
 	rootCmd := &cobra.Command{Use: "myapp"}
 	repo := NewRepositorySlug("test", "myapp")
-	RegisterCommands(rootCmd, "1.0.0", repo, WithConfig(cfg))
+	RegisterCommands(rootCmd, repo, WithConfig(cfg), WithVersion("1.0.0"))
 
 	assert.Equal(t, "1.0.0", rootCmd.Version)
 
@@ -389,4 +428,16 @@ func TestRegisterCommands(t *testing.T) {
 	require.Nil(t, err)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "install", cmd.Name())
+}
+
+func TestRegisterCommandsAutoDetectVersion(t *testing.T) {
+	prev := EmbeddedVersion
+	EmbeddedVersion = "7.7.7"
+	t.Cleanup(func() { EmbeddedVersion = prev })
+
+	rootCmd := &cobra.Command{Use: "myapp"}
+	repo := NewRepositorySlug("test", "myapp")
+	RegisterCommands(rootCmd, repo)
+
+	assert.Equal(t, "7.7.7", rootCmd.Version)
 }

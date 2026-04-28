@@ -33,7 +33,12 @@ func (up *Updater) UpdateTo(ctx context.Context, rel *Release, cmdPath string) e
 
 // UpdateCommand updates a given command binary to the latest version.
 // 'current' is used to check the latest version against the current version.
+// When current is empty, it is resolved via [CurrentVersion] -- see the
+// package-level [EmbeddedVersion] variable for ldflags-based version embedding.
 func (up *Updater) UpdateCommand(ctx context.Context, cmdPath string, current string, repository Repository) (*Release, error) {
+	if current == "" {
+		current = CurrentVersion()
+	}
 	currentVer, err := parseCurrentVersion(current)
 	if err != nil {
 		return nil, err
@@ -82,6 +87,7 @@ func (up *Updater) UpdateCommand(ctx context.Context, cmdPath string, current st
 }
 
 // UpdateSelf updates the running executable itself to the latest version.
+// When current is empty, it is resolved via [CurrentVersion].
 func (up *Updater) UpdateSelf(ctx context.Context, current string, repository Repository) (*Release, error) {
 	cmdPath, err := getExecutablePath()
 	if err != nil {
