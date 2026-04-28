@@ -1,10 +1,14 @@
 package selfupdate
 
 import (
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"testing"
 
 	"github.com/wow-look-at-my/testify/assert"
+	"github.com/wow-look-at-my/testify/require"
 )
 
 func TestCurrentVersionReturnsExplicitVersion(t *testing.T) {
@@ -109,4 +113,38 @@ func TestDetectEmbeddedVersionPopulatesDetected(t *testing.T) {
 	// Calling again returns the same memoised value without re-running
 	// detectEmbeddedVersion (sync.Once contract).
 	assert.Equal(t, got, CurrentVersion())
+}
+
+// TestEmbeddedVersionViaLDFlags is the end-to-end check for the documented
+// "ready-to-go" embedding mechanism: it builds a real binary that imports the
+// library, injects a value into [EmbeddedVersion] via -ldflags "-X ...", and
+// verifies the running binary surfaces that exact value through
+// [CurrentVersion].
+func TestEmbeddedVersionViaLDFlags(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a real binary; skipped under -short")
+	}
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skipf("go toolchain not on PATH: %v", err)
+	}
+
+	const wantVersion = "1.2.3-ldflags-test"
+
+	binPath := filepath.Join(t.TempDir(), "versionprog")
+	if runtime.GOOS == "windows" {
+		binPath += ".exe"
+	}
+
+	build := exec.Command(goBin, "build",
+		"-o", binPath,
+		"-ldflags", "-X github.com/wow-look-at-my/go-selfupdate-mini.EmbeddedVersion="+wantVersion,
+		"./testdata/versionprog",
+	)
+	buildOut, err := build.CombinedOutput()
+	require.Nilf(t, err, "go build failed: %s", buildOut)
+
+	runOut, err := exec.Command(binPath).CombinedOutput()
+	require.Nilf(t, err, "binary execution failed: %s", runOut)
+	assert.Equal(t, wantVersion, string(runOut))
 }
