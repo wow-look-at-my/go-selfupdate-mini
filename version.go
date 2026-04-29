@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 )
 
 // EmbeddedVersion is the current version of the running binary. Consuming
@@ -37,14 +38,19 @@ var (
 //  1. The package-level [EmbeddedVersion] variable, if non-empty.
 //  2. The main module version reported by [debug.ReadBuildInfo] -- populated
 //     automatically by "go install <module>@<version>".
-//  3. A short VCS revision (with a "+dirty" suffix when the working tree was
+//  3. The VCS commit time rendered as the wow-look-at-my "autorelease" tag
+//     "v0.0.<unix-seconds>" (with a "+dirty" suffix when the working tree was
+//     modified at build time), when [debug.BuildInfo.Settings] carries a
+//     parseable "vcs.time" entry.
+//  4. A short VCS revision (with a "+dirty" suffix when the working tree was
 //     modified at build time) extracted from [debug.BuildInfo.Settings].
-//  4. "(devel)" as a final fallback.
+//  5. "(devel)" as a final fallback.
 //
-// The returned string is opaque: only path 2 is guaranteed to be a valid
-// semver tag. Self-update flows that compare versions (e.g. [Updater.UpdateSelf])
-// require a parseable semver, so callers using a dev/VCS fallback should pass
-// an explicit "--version" or set [EmbeddedVersion] via ldflags before shipping.
+// The returned string is opaque: paths 2 and 3 are guaranteed to be parseable
+// release tags. Self-update flows that compare versions (e.g.
+// [Updater.UpdateSelf]) require a parseable semver, so callers using a
+// short-revision/(devel) fallback should pass an explicit "--version" or set
+// [EmbeddedVersion] via ldflags before shipping.
 func CurrentVersion() string {
 	if EmbeddedVersion != "" {
 		return EmbeddedVersion
@@ -73,7 +79,7 @@ func versionFromBuildInfo(info *debug.BuildInfo) string {
 		return strings.TrimPrefix(v, "v")
 	}
 
-	var revision string
+	var revision, vcsTime string
 	var modified bool
 	for _, s := range info.Settings {
 		switch s.Key {
@@ -81,6 +87,23 @@ func versionFromBuildInfo(info *debug.BuildInfo) string {
 			revision = s.Value
 		case "vcs.modified":
 			modified = s.Value == "true"
+		case "vcs.time":
+			vcsTime = s.Value
+		}
+	}
+
+	// wow-look-at-my "autorelease" tag scheme: every push to the default
+	// branch is tagged "v0.0.<unix-seconds>" where the suffix is the commit
+	// time. vcs.time is the same value rendered as RFC3339, so converting
+	// back to unix seconds yields the exact tag a binary built from this
+	// commit was published under.
+	if vcsTime != "" {
+		if t, err := time.Parse(time.RFC3339, vcsTime); err == nil {
+			v := fmt.Sprintf("v0.0.%d", t.Unix())
+			if modified {
+				v += "+dirty"
+			}
+			return v
 		}
 	}
 
