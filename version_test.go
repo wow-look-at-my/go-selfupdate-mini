@@ -99,6 +99,55 @@ func TestVersionFromBuildInfoNoVCSNoMain(t *testing.T) {
 	assert.Equal(t, "(devel)", versionFromBuildInfo(info))
 }
 
+func TestVersionFromBuildInfoAutoreleaseClean(t *testing.T) {
+	// 2026-04-27T09:52:22Z == unix 1777283542 (the wow-cli v0.0.1777283542 release).
+	info := &debug.BuildInfo{
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "abcdef0123456789"},
+			{Key: "vcs.modified", Value: "false"},
+			{Key: "vcs.time", Value: "2026-04-27T09:52:22Z"},
+		},
+	}
+	assert.Equal(t, "v0.0.1777283542", versionFromBuildInfo(info))
+}
+
+func TestVersionFromBuildInfoAutoreleaseDirty(t *testing.T) {
+	info := &debug.BuildInfo{
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "abcdef0123456789"},
+			{Key: "vcs.modified", Value: "true"},
+			{Key: "vcs.time", Value: "2026-04-27T09:52:22Z"},
+		},
+	}
+	assert.Equal(t, "v0.0.1777283542+dirty", versionFromBuildInfo(info))
+}
+
+func TestVersionFromBuildInfoAutoreleasePrefersMainVersion(t *testing.T) {
+	// Main.Version takes priority -- the autorelease branch must not preempt
+	// a properly recorded module version (e.g. from "go install ...@v1.2.3").
+	info := &debug.BuildInfo{
+		Main: debug.Module{Version: "v1.2.3"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "abcdef0123456789"},
+			{Key: "vcs.modified", Value: "false"},
+			{Key: "vcs.time", Value: "2026-04-27T09:52:22Z"},
+		},
+	}
+	assert.Equal(t, "1.2.3", versionFromBuildInfo(info))
+}
+
+func TestVersionFromBuildInfoAutoreleaseBadTime(t *testing.T) {
+	// Unparseable vcs.time falls through to the short-revision branch.
+	info := &debug.BuildInfo{
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "abcdef0123456789"},
+			{Key: "vcs.modified", Value: "false"},
+			{Key: "vcs.time", Value: "not-a-date"},
+		},
+	}
+	assert.Equal(t, "abcdef012345", versionFromBuildInfo(info))
+}
+
 func TestDetectEmbeddedVersionPopulatesDetected(t *testing.T) {
 	prev := EmbeddedVersion
 	EmbeddedVersion = ""

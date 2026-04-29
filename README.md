@@ -87,10 +87,15 @@ selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
    go install github.com/owner/repo@v1.2.3
    ```
 
-3. A short VCS revision (with `+dirty` suffix when the working tree was modified) -- for ad-hoc
-   `go build` from a checkout.
+3. The VCS commit time rendered as the `wow-look-at-my/go-toolchain` "autorelease" tag
+   `v0.0.<unix-seconds>` (with a `+dirty` suffix when the working tree was modified at build time),
+   when `vcs.time` is recorded in the build info. `UpdateSelf` refuses to overwrite a `+dirty`
+   build, since no released artifact corresponds to a dirty working tree.
 
-4. `(devel)` as a final fallback.
+4. A short VCS revision (with `+dirty` suffix when the working tree was modified) -- for ad-hoc
+   `go build` from a checkout without VCS time information.
+
+5. `(devel)` as a final fallback.
 
 Because `CurrentVersion()` does the work, you do not need to specify the current version anywhere
 when calling `RegisterCommands`, `UpdateSelf`, or `UpdateCommand` -- pass `""` to auto-detect.
