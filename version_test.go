@@ -136,6 +136,49 @@ func TestVersionFromBuildInfoAutoreleasePrefersMainVersion(t *testing.T) {
 	assert.Equal(t, "1.2.3", versionFromBuildInfo(info))
 }
 
+func TestVersionFromBuildInfoPseudoVersionFallsThrough(t *testing.T) {
+	// A Go pseudo-version in Main.Version must be ignored so the vcs.time
+	// autorelease branch produces the correct tag.
+	info := &debug.BuildInfo{
+		Main: debug.Module{Version: "v0.0.0-20260503065313-088071340bf8"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "088071340bf8abcdef01"},
+			{Key: "vcs.modified", Value: "false"},
+			{Key: "vcs.time", Value: "2026-05-03T06:53:13Z"},
+		},
+	}
+	assert.Equal(t, "v0.0.1777791193", versionFromBuildInfo(info))
+}
+
+func TestVersionFromBuildInfoPseudoVersionIncompatible(t *testing.T) {
+	// Pseudo-versions can carry a +incompatible suffix.
+	info := &debug.BuildInfo{
+		Main: debug.Module{Version: "v2.0.0-20260503065313-088071340bf8+incompatible"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "088071340bf8abcdef01"},
+			{Key: "vcs.modified", Value: "false"},
+			{Key: "vcs.time", Value: "2026-05-03T06:53:13Z"},
+		},
+	}
+	assert.Equal(t, "v0.0.1777791193", versionFromBuildInfo(info))
+}
+
+func TestVersionFromBuildInfoSemverPreReleaseNotPseudo(t *testing.T) {
+	// A legitimate semver pre-release that happens to contain digits must NOT
+	// be mistaken for a pseudo-version. The 14-digit timestamp segment in a
+	// real pseudo-version is anchored after `vN.N.N-...`, and the regex
+	// requires both that timestamp and the 12-char hex suffix.
+	info := &debug.BuildInfo{
+		Main: debug.Module{Version: "v1.2.3-rc.20260503143000-abc123def456"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "abc123def456abcdef01"},
+			{Key: "vcs.modified", Value: "false"},
+			{Key: "vcs.time", Value: "2026-05-03T14:30:00Z"},
+		},
+	}
+	assert.Equal(t, "1.2.3-rc.20260503143000-abc123def456", versionFromBuildInfo(info))
+}
+
 func TestVersionFromBuildInfoAutoreleaseBadTime(t *testing.T) {
 	// Unparseable vcs.time falls through to the short-revision branch.
 	info := &debug.BuildInfo{
