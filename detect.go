@@ -52,10 +52,12 @@ func defaultCompareVersions(current, candidate Version) bool {
 }
 
 // parseCurrentVersion parses a version string (like "1.2.3") into a Version.
+// Non-semver strings (e.g. "dev") are treated as 0.0.0 so any released
+// version will compare as newer and the update will proceed.
 func parseCurrentVersion(current string) (Version, error) {
 	sv, err := semver.NewVersion(current)
 	if err != nil {
-		return Version{}, fmt.Errorf("incorrect version %q: %w", current, err)
+		return Version{Original: current, Version: "0.0.0"}, nil
 	}
 	return Version{
 		Original:     current,
