@@ -2,11 +2,14 @@ package selfupdate
 
 import (
 	"fmt"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
 )
+
+var pseudoVersionRE = regexp.MustCompile(`-\d{14}-[A-Fa-f0-9]{12}(\+|$)`)
 
 // EmbeddedVersion is the current version of the running binary. Consuming
 // applications populate it in any of three ways:
@@ -75,7 +78,7 @@ func versionFromBuildInfo(info *debug.BuildInfo) string {
 	if info == nil {
 		return "(devel)"
 	}
-	if v := info.Main.Version; v != "" && v != "(devel)" {
+	if v := info.Main.Version; v != "" && v != "(devel)" && !pseudoVersionRE.MatchString(v) {
 		return strings.TrimPrefix(v, "v")
 	}
 
