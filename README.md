@@ -54,7 +54,7 @@ if rel == nil {
 
 ### Cobra integration with auto-detected version
 
-`RegisterCommands` wires up `version`, `update`, and `install` subcommands plus the
+`RegisterCommands` wires up `version` and `update` subcommands plus the
 `--version` flag. The current version is auto-detected, so most apps need nothing more:
 
 ```go
@@ -65,6 +65,13 @@ To override the auto-detected version explicitly, pass `WithVersion`:
 
 ```go
 selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
+```
+
+The `update` command accepts an optional version argument to pin to a specific release:
+
+```sh
+myapp update        # update to latest
+myapp update 2.0.0  # update to specific version
 ```
 
 ## Version embedding
