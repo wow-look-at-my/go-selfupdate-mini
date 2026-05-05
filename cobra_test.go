@@ -425,9 +425,7 @@ func TestRegisterCommands(t *testing.T) {
 	assert.Equal(t, "update", cmd.Name())
 
 	cmd, _, err = rootCmd.Find([]string{"install"})
-	require.Nil(t, err)
-	assert.NotNil(t, cmd)
-	assert.Equal(t, "install", cmd.Name())
+	assert.NotNil(t, err) // install command should not be registered by default
 }
 
 func TestRegisterCommandsAutoDetectVersion(t *testing.T) {
@@ -440,4 +438,24 @@ func TestRegisterCommandsAutoDetectVersion(t *testing.T) {
 	RegisterCommands(rootCmd, repo)
 
 	assert.Equal(t, "7.7.7", rootCmd.Version)
+}
+
+func TestRegisterInstallCommand(t *testing.T) {
+	src := &mockSource{
+		releases: []SourceRelease{
+			newTestRelease("v1.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64", size: 100, url: "https://example.com/myapp"}),
+		},
+	}
+	cfg := Config{Source: src, Platform: Platform{OS: "linux", Arch: "amd64"}}
+
+	rootCmd := &cobra.Command{Use: "myapp"}
+	repo := NewRepositorySlug("test", "myapp")
+	RegisterCommands(rootCmd, repo, WithConfig(cfg))
+	RegisterInstallCommand(rootCmd, repo, WithConfig(cfg))
+
+	// After registering install command, it should be found
+	cmd, _, err := rootCmd.Find([]string{"install"})
+	require.Nil(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "install", cmd.Name())
 }

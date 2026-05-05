@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RegisterCommands registers the version, update, and install commands on the
-// root command and sets the --version flag. This is the only supported way to
+// RegisterCommands registers the version and update commands on the root
+// command and sets the --version flag. This is the only supported way to
 // integrate selfupdate into your CLI app -- call once and everything is wired up.
 //
 // The current version is resolved from [WithVersion] if supplied, otherwise it
@@ -27,11 +27,21 @@ import (
 // Or with an explicit version override:
 //
 //	selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
+//
+// To optionally add an install command, call RegisterInstallCommand separately:
+//
+//	selfupdate.RegisterInstallCommand(rootCmd, selfupdate.ParseSlug("owner/repo"))
 func RegisterCommands(rootCmd *cobra.Command, repository Repository, opts ...CommandOption) {
 	cfg := applyOptions(opts)
 	rootCmd.Version = cfg.currentVersion
 	rootCmd.AddCommand(newVersionCommand(repository, opts...))
 	rootCmd.AddCommand(newUpdateCommand(repository, opts...))
+}
+
+// RegisterInstallCommand optionally registers an install command that downloads
+// a release from the repository and installs it to a destination path.
+// This command is not included by default in RegisterCommands.
+func RegisterInstallCommand(rootCmd *cobra.Command, repository Repository, opts ...CommandOption) {
 	rootCmd.AddCommand(newInstallCommand(repository, opts...))
 }
 
