@@ -3,8 +3,6 @@ package selfupdate
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,22 +25,11 @@ import (
 // Or with an explicit version override:
 //
 //	selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
-//
-// To optionally add an install command, call RegisterInstallCommand separately:
-//
-//	selfupdate.RegisterInstallCommand(rootCmd, selfupdate.ParseSlug("owner/repo"))
 func RegisterCommands(rootCmd *cobra.Command, repository Repository, opts ...CommandOption) {
 	cfg := applyOptions(opts)
 	rootCmd.Version = cfg.currentVersion
 	rootCmd.AddCommand(newVersionCommand(repository, opts...))
 	rootCmd.AddCommand(newUpdateCommand(repository, opts...))
-}
-
-// RegisterInstallCommand optionally registers an install command that downloads
-// a release from the repository and installs it to a destination path.
-// This command is not included by default in RegisterCommands.
-func RegisterInstallCommand(rootCmd *cobra.Command, repository Repository, opts ...CommandOption) {
-	rootCmd.AddCommand(newInstallCommand(repository, opts...))
 }
 
 // commandConfig holds shared configuration for cobra commands.
@@ -88,12 +75,10 @@ func newUpdaterFromConfig(cfg commandConfig) (*Updater, error) {
 	return NewUpdater(Config{})
 }
 
-func newInstallCommand(repository Repository, opts ...CommandOption) *cobra.Command {
-	var version string
-
+func newUpdateCommand(repository Repository, opts ...CommandOption) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "install [path]",
-		Short: "Install the binary from a GitHub release",
+		Use:   "update [version]",
+		Short: "Update the binary to the latest (or specified) version",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := applyOptions(opts)
@@ -104,62 +89,8 @@ func newInstallCommand(repository Repository, opts ...CommandOption) *cobra.Comm
 
 			ctx := cmd.Context()
 
-			var rel *Release
-			if version != "" {
-				rel, err = detectVersion(ctx, up, repository, version)
-				if err != nil {
-					return err
-				}
-			} else {
-				r, found, err := up.DetectLatest(ctx, repository)
-				if err != nil {
-					return err
-				}
-				if !found {
-					return fmt.Errorf("no release found")
-				}
-				rel = r
-			}
-
-			cmdPath, err := installPath(repository, args)
-			if err != nil {
-				return err
-			}
-
-			if err := os.MkdirAll(filepath.Dir(cmdPath), 0o755); err != nil {
-				return fmt.Errorf("create install directory: %w", err)
-			}
-
-			if err := up.UpdateTo(ctx, rel, cmdPath); err != nil {
-				return err
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Installed %s to %s\n", rel.Version.Version, cmdPath)
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&version, "version", "", "install a specific version instead of latest")
-	return cmd
-}
-
-func newUpdateCommand(repository Repository, opts ...CommandOption) *cobra.Command {
-	var version string
-
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update the binary to the latest version",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg := applyOptions(opts)
-			up, err := newUpdaterFromConfig(cfg)
-			if err != nil {
-				return err
-			}
-
-			ctx := cmd.Context()
-
-			if version != "" {
-				return updateToVersion(ctx, cmd, up, repository, version)
+			if len(args) == 1 {
+				return updateToVersion(ctx, cmd, up, repository, args[0])
 			}
 
 			rel, err := up.UpdateSelf(ctx, cfg.currentVersion, repository)
@@ -175,7 +106,6 @@ func newUpdateCommand(repository Repository, opts ...CommandOption) *cobra.Comma
 		},
 	}
 
-	cmd.Flags().StringVar(&version, "version", "", "update to a specific version instead of latest")
 	return cmd
 }
 
@@ -284,19 +214,3 @@ func detectVersion(ctx context.Context, up *Updater, repository Repository, vers
 	return nil, fmt.Errorf("version %s not found", version)
 }
 
-// installPath determines the destination path for the install command.
-// An explicit args[0] wins; otherwise default to $HOME/.local/bin/<repo>.
-func installPath(repository Repository, args []string) (string, error) {
-	if len(args) > 0 {
-		return args[0], nil
-	}
-	_, repo, err := repository.GetSlug()
-	if err != nil {
-		return "", err
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	return filepath.Join(home, ".local", "bin", repo), nil
-}

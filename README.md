@@ -67,11 +67,11 @@ To override the auto-detected version explicitly, pass `WithVersion`:
 selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
 ```
 
-To optionally add an `install` command (for downloading and installing arbitrary releases
-to a destination path), call `RegisterInstallCommand` separately:
+The `update` command accepts an optional version argument to pin to a specific release:
 
-```go
-selfupdate.RegisterInstallCommand(rootCmd, selfupdate.ParseSlug("owner/repo"))
+```sh
+myapp update        # update to latest
+myapp update 2.0.0  # update to specific version
 ```
 
 ## Version embedding

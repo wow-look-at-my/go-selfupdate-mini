@@ -15,7 +15,7 @@ Do not use `go build`, `go test`, or other bare `go` commands. Always use `go-to
 - **package.go** -- High-level convenience functions (`DetectLatest`, `UpdateSelf`, etc.) using a global `DefaultUpdater` singleton
 - **updater.go** -- Core `Updater` struct, platform detection, ARM version detection
 - **version.go** -- `EmbeddedVersion` package var (ldflags-settable) and `CurrentVersion()` auto-detector that reads from build info / VCS
-- **cobra.go** -- `RegisterCommands` wiring for cobra; `WithVersion`/`WithConfig` opts; the current version is optional and auto-detected via `CurrentVersion()`
+- **cobra.go** -- `RegisterCommands` wiring for cobra (`version` + `update` subcommands); `WithVersion`/`WithConfig` opts; the current version is optional and auto-detected via `CurrentVersion()`
 - **config.go** -- `Config` struct and extension point interfaces (`Decompressor`, `VersionFilter`)
 - **detect.go** -- Release detection, version parsing, asset matching by platform suffixes or regex filters
 - **update.go** -- Download, decompress, validate, and install flow
