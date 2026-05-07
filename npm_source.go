@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,38 @@ func (r NpmRepository) GetSlug() (string, string, error) {
 }
 
 var _ Repository = NpmRepository{}
+
+// NpmRepositoryFromBuildInfo derives the npm scope and package name from the
+// running binary's Go module path via [runtime/debug.ReadBuildInfo].
+//
+// Given a module path like "github.com/wow-look-at-my/go-toolchain" it
+// returns NpmRepository{Scope: "@wow-look-at-my", Name: "go-toolchain"}.
+// The module host (e.g. "github.com") is ignored; the second path component
+// becomes the npm scope and the third becomes the package name.
+//
+// This lets a binary self-identify its npm package without any hard-coded
+// slug: just pass the registry base URL to [NewNpmSource] and pass the
+// returned repository to [Updater.DetectLatest].
+func NpmRepositoryFromBuildInfo() (NpmRepository, error) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return NpmRepository{}, fmt.Errorf("runtime/debug build info not available; set EmbeddedVersion or build with module support")
+	}
+	modPath := info.Main.Path
+	if modPath == "" || modPath == "command-line-arguments" {
+		return NpmRepository{}, fmt.Errorf("module path %q is not usable for npm package auto-detection", modPath)
+	}
+	// Module paths are at least "host/org/name"; major-version suffixes (e.g.
+	// "/v2") are extra components after [2] and are intentionally ignored.
+	parts := strings.SplitN(modPath, "/", 4)
+	if len(parts) < 3 {
+		return NpmRepository{}, fmt.Errorf("module path %q has fewer than 3 slash-separated components", modPath)
+	}
+	return NpmRepository{
+		Scope: "@" + parts[1],
+		Name:  parts[2],
+	}, nil
+}
 
 // NpmSource implements [Source] using an npm registry that publishes
 // per-platform binary packages following the go-toolchain npm convention:

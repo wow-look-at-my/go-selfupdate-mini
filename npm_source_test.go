@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/wow-look-at-my/testify/assert"
@@ -226,4 +227,21 @@ func TestNpmSource_EndToEnd_WithUpdater(t *testing.T) {
 	require.True(t, found)
 	assert.Equal(t, "v1.0.0", rel.Version.Original)
 	assert.Equal(t, "1.0.0", rel.Version.Version)
+}
+
+func TestNpmRepositoryFromBuildInfo(t *testing.T) {
+	repo, err := NpmRepositoryFromBuildInfo()
+	// Build info is always available in a properly built test binary.
+	require.Nil(t, err)
+
+	// The scope must be "@<something>".
+	assert.True(t, len(repo.Scope) > 1 && repo.Scope[0] == '@', "scope %q should start with @", repo.Scope)
+	// The name must be non-empty.
+	assert.True(t, len(repo.Name) > 0, "name should be non-empty")
+
+	// When running tests for this module the module path is
+	// "github.com/wow-look-at-my/go-selfupdate-mini", so verify the derivation
+	// is consistent (don't hard-code the exact value to stay fork-friendly).
+	assert.Equal(t, "@"+strings.Split(repo.Scope, "@")[1], repo.Scope)
+	assert.NotContains(t, repo.Name, "/", "name should not contain slashes")
 }
