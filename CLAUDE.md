@@ -1,6 +1,6 @@
 # go-selfupdate-mini
 
-Minimal Go library for self-updating binaries via GitHub Releases. No dependency on `go-github`.
+Minimal Go library for self-updating binaries via GitHub Releases or npm registries. No dependency on `go-github`.
 
 ## Build & Test
 
@@ -24,7 +24,8 @@ Do not use `go build`, `go test`, or other bare `go` commands. Always use `go-to
 - **source.go** -- `Source` interface for pluggable release providers
 - **github_source.go** -- GitHub REST API implementation of `Source`
 - **github_release.go** -- GitHub API JSON response models
-- **repository.go** / **repository_slug.go** -- `Repository` interface and `owner/repo` slug implementation
+- **npm_source.go** -- npm registry implementation of `Source`; queries per-platform package tarballs (e.g. `@scope/name-linux-x64`) and lets the built-in tar.gz decompressor extract the binary from the npm package layout (`package/bin/<name>`)
+- **repository.go** / **repository_slug.go** -- `Repository` interface and `owner/repo` slug implementation; `NpmRepository` holds scope + name for npm packages
 - **release.go** -- `Release`, `Version`, `Platform`, `Asset` data types
 - **arch.go** -- Architecture fallback logic (ARM variants, x86_64 alias, universal)
 - **arm.go** -- ARM version extraction from binary via `debug/buildinfo`
