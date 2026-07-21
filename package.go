@@ -32,11 +32,13 @@ func UpdateTo(ctx context.Context, assetURL, assetFileName, cmdPath string) erro
 }
 
 // UpdateCommand updates a given command binary to the latest version.
+// Pass an empty string for current to auto-detect via [CurrentVersion].
 func UpdateCommand(ctx context.Context, cmdPath string, current string, repository Repository) (*Release, error) {
 	return DefaultUpdater().UpdateCommand(ctx, cmdPath, current, repository)
 }
 
 // UpdateSelf updates the running executable itself to the latest version.
+// Pass an empty string for current to auto-detect via [CurrentVersion].
 func UpdateSelf(ctx context.Context, current string, repository Repository) (*Release, error) {
 	return DefaultUpdater().UpdateSelf(ctx, current, repository)
 }

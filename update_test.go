@@ -317,6 +317,24 @@ func TestPackageLevelDownloadReleaseAssetFromURL(t *testing.T) {
 
 }
 
+func TestUpdateSelfRefusesDirty(t *testing.T) {
+	src := &mockSource{
+		releases: []SourceRelease{
+			newTestRelease("v2.0.0", &mockAsset{id: 1, name: "myapp_linux_amd64.tar.gz", size: 100, url: "https://example.com/app.tar.gz"}),
+		},
+		assets:	map[int64]string{1: "binary"},
+	}
+	up, _ := NewUpdater(Config{
+		Source:		src,
+		Platform:	Platform{OS: "linux", Arch: "amd64"},
+	})
+
+	_, err := up.UpdateSelf(context.Background(), "v0.0.1+dirty", NewRepositorySlug("test", "repo"))
+	require.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "dirty"))
+
+}
+
 func TestDecompressAndInstallError(t *testing.T) {
 	up, _ := NewUpdater(Config{
 		Platform:	Platform{OS: "linux", Arch: "amd64"},

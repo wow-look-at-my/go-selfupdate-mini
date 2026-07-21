@@ -1,6 +1,6 @@
 # go-selfupdate-mini
 
-Minimal Go library for self-updating binaries via GitHub Releases. No dependency on `go-github`.
+Minimal Go library for self-updating binaries via GitHub Releases or npm registries. No dependency on `go-github`.
 
 ## Build & Test
 
@@ -14,6 +14,8 @@ Do not use `go build`, `go test`, or other bare `go` commands. Always use `go-to
 
 - **package.go** -- High-level convenience functions (`DetectLatest`, `UpdateSelf`, etc.) using a global `DefaultUpdater` singleton
 - **updater.go** -- Core `Updater` struct, platform detection, ARM version detection
+- **version.go** -- `EmbeddedVersion` package var (ldflags-settable) and `CurrentVersion()` auto-detector that reads from build info / VCS
+- **cobra.go** -- `RegisterCommands` wiring for cobra (`version` + `update` subcommands); `WithVersion`/`WithConfig` opts; the current version is optional and auto-detected via `CurrentVersion()`
 - **config.go** -- `Config` struct and extension point interfaces (`Decompressor`, `VersionFilter`)
 - **detect.go** -- Release detection, version parsing, asset matching by platform suffixes or regex filters
 - **update.go** -- Download, decompress, validate, and install flow
@@ -22,7 +24,8 @@ Do not use `go build`, `go test`, or other bare `go` commands. Always use `go-to
 - **source.go** -- `Source` interface for pluggable release providers
 - **github_source.go** -- GitHub REST API implementation of `Source`
 - **github_release.go** -- GitHub API JSON response models
-- **repository.go** / **repository_slug.go** -- `Repository` interface and `owner/repo` slug implementation
+- **npm_source.go** -- npm registry implementation of `Source`; queries per-platform package tarballs (e.g. `@scope/name-linux-x64`) and lets the built-in tar.gz decompressor extract the binary from the npm package layout (`package/bin/<name>`)
+- **repository.go** / **repository_slug.go** -- `Repository` interface and `owner/repo` slug implementation; `NpmRepository` holds scope + name for npm packages
 - **release.go** -- `Release`, `Version`, `Platform`, `Asset` data types
 - **arch.go** -- Architecture fallback logic (ARM variants, x86_64 alias, universal)
 - **arm.go** -- ARM version extraction from binary via `debug/buildinfo`
@@ -37,3 +40,4 @@ Do not use `go build`, `go test`, or other bare `go` commands. Always use `go-to
 - Tests use `net/http/httptest` for HTTP mocking -- no external test dependencies
 - Errors are exported as sentinel variables in `errors.go`
 - The `Source` interface allows non-GitHub providers without changing core logic
+- A consuming app's current version is never required: pass `""` (or omit `WithVersion`) and `CurrentVersion()` resolves it from `EmbeddedVersion` (ldflags), `runtime/debug.ReadBuildInfo`, or VCS settings

@@ -40,7 +40,8 @@ fmt.Printf("Latest: %s\n", rel.Version.Version)
 ### Update the running binary
 
 ```go
-rel, err := selfupdate.UpdateSelf(ctx, "1.0.0", selfupdate.ParseSlug("owner/repo"))
+// Pass the running binary's version, or "" to auto-detect via CurrentVersion().
+rel, err := selfupdate.UpdateSelf(ctx, "", selfupdate.ParseSlug("owner/repo"))
 if err != nil {
     log.Fatal(err)
 }
@@ -50,6 +51,61 @@ if rel == nil {
     fmt.Printf("updated to %s\n", rel.Version.Version)
 }
 ```
+
+### Cobra integration with auto-detected version
+
+`RegisterCommands` wires up `version` and `update` subcommands plus the
+`--version` flag. The current version is auto-detected, so most apps need nothing more:
+
+```go
+selfupdate.RegisterCommands(rootCmd, selfupdate.ParseSlug("owner/repo"))
+```
+
+To override the auto-detected version explicitly, pass `WithVersion`:
+
+```go
+selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
+```
+
+The `update` command accepts an optional version argument to pin to a specific release:
+
+```sh
+myapp update        # update to latest
+myapp update 2.0.0  # update to specific version
+```
+
+## Version embedding
+
+`selfupdate.CurrentVersion()` resolves the binary's version from the first source available:
+
+1. The package-level `selfupdate.EmbeddedVersion` variable, settable via ldflags or directly:
+
+   ```sh
+   go build -ldflags "-X github.com/wow-look-at-my/go-selfupdate-mini.EmbeddedVersion=1.2.3"
+   ```
+
+   ```go
+   selfupdate.EmbeddedVersion = appVersion
+   ```
+
+2. The main module version from `runtime/debug.ReadBuildInfo`. This is populated automatically by
+
+   ```sh
+   go install github.com/owner/repo@v1.2.3
+   ```
+
+3. The VCS commit time rendered as the `wow-look-at-my/go-toolchain` "autorelease" tag
+   `v0.0.<unix-seconds>` (with a `+dirty` suffix when the working tree was modified at build time),
+   when `vcs.time` is recorded in the build info. `UpdateSelf` refuses to overwrite a `+dirty`
+   build, since no released artifact corresponds to a dirty working tree.
+
+4. A short VCS revision (with `+dirty` suffix when the working tree was modified) -- for ad-hoc
+   `go build` from a checkout without VCS time information.
+
+5. `(devel)` as a final fallback.
+
+Because `CurrentVersion()` does the work, you do not need to specify the current version anywhere
+when calling `RegisterCommands`, `UpdateSelf`, or `UpdateCommand` -- pass `""` to auto-detect.
 
 ### Custom updater
 

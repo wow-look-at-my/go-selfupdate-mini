@@ -11,27 +11,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RegisterCommands registers the version and update commands on the root command
-// and sets the --version flag. This is the recommended way to integrate selfupdate
-// into your CLI app — one call wires up the entire self-update flow.
+// RegisterCommands registers the version and update commands on the root
+// command and sets the --version flag. This is the recommended way to
+// integrate selfupdate into your CLI app -- one call wires up the entire
+// self-update flow.
+//
+// The current version is resolved from [WithVersion] if supplied, otherwise it
+// is auto-detected via [CurrentVersion] (which honours ldflags injection into
+// the package-level [EmbeddedVersion] variable, the main module version from
+// build info, or a VCS revision fallback).
 //
 // Usage in main:
 //
-//	selfupdate.RegisterCommands(rootCmd, "1.0.0", selfupdate.ParseSlug("owner/repo"))
+//	selfupdate.RegisterCommands(rootCmd, selfupdate.ParseSlug("owner/repo"))
+//
+// Or with an explicit version override:
+//
+//	selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
 //
 // For install-to-path workflows (bootstrap tooling), use NewInstallCommand directly.
-func RegisterCommands(rootCmd *cobra.Command, currentVersion string, repository Repository, opts ...CommandOption) {
-	rootCmd.Version = currentVersion
-	rootCmd.AddCommand(NewVersionCommand(currentVersion, repository, opts...))
-	rootCmd.AddCommand(NewUpdateCommand(repository, currentVersion, opts...))
+func RegisterCommands(rootCmd *cobra.Command, repository Repository, opts ...CommandOption) {
+	cfg := applyOptions(opts)
+	rootCmd.Version = cfg.currentVersion
+	rootCmd.AddCommand(newVersionCommand(repository, opts...))
+	rootCmd.AddCommand(newUpdateCommand(repository, opts...))
 }
 
 // commandConfig holds shared configuration for cobra commands.
 type commandConfig struct {
-	config *Config
+	config         *Config
+	currentVersion string
 }
 
-// CommandOption configures the cobra commands returned by NewInstallCommand and NewUpdateCommand.
+// CommandOption configures the cobra commands registered by RegisterCommands.
 type CommandOption func(*commandConfig)
 
 // WithConfig sets a custom Config for the underlying Updater.
@@ -41,10 +53,22 @@ func WithConfig(cfg Config) CommandOption {
 	}
 }
 
+// WithVersion overrides the current binary version reported by the version
+// command and used by the update command's "is there a newer release?" check.
+// When this option is omitted, the version is auto-detected via [CurrentVersion].
+func WithVersion(v string) CommandOption {
+	return func(c *commandConfig) {
+		c.currentVersion = v
+	}
+}
+
 func applyOptions(opts []CommandOption) commandConfig {
 	var cfg commandConfig
 	for _, o := range opts {
 		o(&cfg)
+	}
+	if cfg.currentVersion == "" {
+		cfg.currentVersion = CurrentVersion()
 	}
 	return cfg
 }
@@ -161,6 +185,40 @@ func NewUpdateCommand(repository Repository, currentVersion string, opts ...Comm
 	return cmd
 }
 
+func newUpdateCommand(repository Repository, opts ...CommandOption) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update [version]",
+		Short: "Update the binary to the latest (or specified) version",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := applyOptions(opts)
+			up, err := newUpdaterFromConfig(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+
+			if len(args) == 1 {
+				return updateToVersion(ctx, cmd, up, repository, args[0])
+			}
+
+			rel, err := up.UpdateSelf(ctx, cfg.currentVersion, repository)
+			if err != nil {
+				return err
+			}
+			if rel.Version.Version == cfg.currentVersion {
+				fmt.Fprintln(cmd.OutOrStdout(), "Already up-to-date.")
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "Updated to %s\n", rel.Version.Version)
+			}
+			return nil
+		},
+	}
+
+	return cmd
+}
+
 // NewVersionCommand returns a *cobra.Command that shows version information.
 //
 // Usage: <program> version [--bare]
@@ -171,6 +229,10 @@ func NewUpdateCommand(repository Repository, currentVersion string, opts ...Comm
 //
 // Recommended: use RegisterCommands instead to wire up version, update, and --version automatically.
 func NewVersionCommand(currentVersion string, repository Repository, opts ...CommandOption) *cobra.Command {
+	return newVersionCommand(repository, append([]CommandOption{WithVersion(currentVersion)}, opts...)...)
+}
+
+func newVersionCommand(repository Repository, opts ...CommandOption) *cobra.Command {
 	var bare bool
 
 	cmd := &cobra.Command{
@@ -178,13 +240,13 @@ func NewVersionCommand(currentVersion string, repository Repository, opts ...Com
 		Short: "Show version information",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := applyOptions(opts)
 			out := cmd.OutOrStdout()
 			if bare {
-				fmt.Fprintln(out, currentVersion)
+				fmt.Fprintln(out, cfg.currentVersion)
 				return nil
 			}
 
-			cfg := applyOptions(opts)
 			up, err := newUpdaterFromConfig(cfg)
 			if err != nil {
 				return err
@@ -192,15 +254,15 @@ func NewVersionCommand(currentVersion string, repository Repository, opts ...Com
 
 			latest, found, err := up.DetectLatest(cmd.Context(), repository)
 			if err != nil || !found {
-				fmt.Fprintf(out, "version: %s\n", currentVersion)
+				fmt.Fprintf(out, "version: %s\n", cfg.currentVersion)
 				return nil
 			}
 
 			age := humanizeAge(time.Since(latest.PublishedAt))
-			if latest.Version.Version == currentVersion {
-				fmt.Fprintf(out, "version: %s (latest, released %s)\n", currentVersion, age)
+			if latest.Version.Version == cfg.currentVersion {
+				fmt.Fprintf(out, "version: %s (latest, released %s)\n", cfg.currentVersion, age)
 			} else {
-				fmt.Fprintf(out, "version: %s\n", currentVersion)
+				fmt.Fprintf(out, "version: %s\n", cfg.currentVersion)
 				fmt.Fprintf(out, "latest:  %s (released %s)\n", latest.Version.Version, age)
 			}
 			return nil
@@ -291,3 +353,4 @@ func installPath(repository Repository, args []string) (string, error) {
 	}
 	return filepath.Join(home, ".local", "bin", repo), nil
 }
+

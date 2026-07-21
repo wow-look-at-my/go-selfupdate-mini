@@ -33,7 +33,12 @@ func (up *Updater) UpdateTo(ctx context.Context, rel *Release, cmdPath string) e
 
 // UpdateCommand updates a given command binary to the latest version.
 // 'current' is used to check the latest version against the current version.
+// When current is empty, it is resolved via [CurrentVersion] -- see the
+// package-level [EmbeddedVersion] variable for ldflags-based version embedding.
 func (up *Updater) UpdateCommand(ctx context.Context, cmdPath string, current string, repository Repository) (*Release, error) {
+	if current == "" {
+		current = CurrentVersion()
+	}
 	currentVer, err := parseCurrentVersion(current)
 	if err != nil {
 		return nil, err
@@ -82,7 +87,22 @@ func (up *Updater) UpdateCommand(ctx context.Context, cmdPath string, current st
 }
 
 // UpdateSelf updates the running executable itself to the latest version.
+// When current is empty, it is resolved via [CurrentVersion].
+//
+// UpdateSelf refuses to overwrite a binary whose version carries the "+dirty"
+// suffix that [versionFromBuildInfo] appends for builds made from a modified
+// working tree: there is no released artifact corresponding to that commit, so
+// any "update" would destroy the local changes the running binary was built
+// from. Callers that genuinely want to clobber a dirty build can strip the
+// suffix themselves before invoking UpdateSelf, or pass an explicit semver via
+// the current argument.
 func (up *Updater) UpdateSelf(ctx context.Context, current string, repository Repository) (*Release, error) {
+	if current == "" {
+		current = CurrentVersion()
+	}
+	if strings.Contains(current, "+dirty") {
+		return nil, fmt.Errorf("refusing to self-update a dirty build (%s)", current)
+	}
 	cmdPath, err := getExecutablePath()
 	if err != nil {
 		return nil, err

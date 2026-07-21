@@ -147,12 +147,18 @@ func TestDefaultCompareVersions(t *testing.T) {
 func TestParseCurrentVersion(t *testing.T) {
 	v, err := parseCurrentVersion("1.2.3")
 	require.Nil(t, err)
-
 	assert.False(t, v.Major != 1 || v.Minor != 2 || v.Patch != 3)
+}
 
-	_, err = parseCurrentVersion("bad")
-	assert.NotNil(t, err)
-
+func TestParseCurrentVersionNonSemver(t *testing.T) {
+	// Non-semver strings like "dev" must not return an error; they are treated
+	// as 0.0.0 so any real release will compare as newer.
+	for _, input := range []string{"dev", "bad", "(devel)", "abcdef012345"} {
+		v, err := parseCurrentVersion(input)
+		assert.Nil(t, err, "input %q should not error", input)
+		assert.Equal(t, "0.0.0", v.Version, "input %q should yield 0.0.0", input)
+		assert.Equal(t, input, v.Original, "Original should preserve the raw input")
+	}
 }
 
 func TestDetectLatest(t *testing.T) {
