@@ -1,10 +1,10 @@
 package selfupdate
 
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
-	"github.com/wow-look-at-my/testify/assert"
-	"github.com/wow-look-at-my/testify/require"
 )
 
 func TestNewUpdaterDefaults(t *testing.T) {
@@ -37,14 +37,14 @@ func TestNewUpdaterCustomPlatform(t *testing.T) {
 
 func TestNewUpdaterUniversalArch(t *testing.T) {
 	up, _ := NewUpdater(Config{
-		Platform:	Platform{OS: "darwin", Arch: "amd64"},
-		UniversalArch:	"universal",
+		Platform:      Platform{OS: "darwin", Arch: "amd64"},
+		UniversalArch: "universal",
 	})
 	assert.Equal(t, "universal", up.universalArch)
 
 	up, _ = NewUpdater(Config{
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
-		UniversalArch:	"universal",
+		Platform:      Platform{OS: "linux", Arch: "amd64"},
+		UniversalArch: "universal",
 	})
 	assert.Equal(t, "", up.universalArch)
 

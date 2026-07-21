@@ -213,4 +213,3 @@ func detectVersion(ctx context.Context, up *Updater, repository Repository, vers
 	}
 	return nil, fmt.Errorf("version %s not found", version)
 }
-
