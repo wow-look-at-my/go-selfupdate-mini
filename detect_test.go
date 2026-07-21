@@ -3,55 +3,55 @@ package selfupdate
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io"
 	"strings"
 	"testing"
 	"time"
-	"github.com/wow-look-at-my/testify/assert"
-	"github.com/wow-look-at-my/testify/require"
 )
 
 // mockRelease implements SourceRelease for testing.
 type mockRelease struct {
-	id		int64
-	tagName		string
-	name		string
-	draft		bool
-	prerelease	bool
-	publishedAt	time.Time
-	releaseNotes	string
-	url		string
-	assets		[]SourceAsset
+	id           int64
+	tagName      string
+	name         string
+	draft        bool
+	prerelease   bool
+	publishedAt  time.Time
+	releaseNotes string
+	url          string
+	assets       []SourceAsset
 }
 
-func (r *mockRelease) GetID() int64			{ return r.id }
-func (r *mockRelease) GetTagName() string		{ return r.tagName }
-func (r *mockRelease) GetName() string			{ return r.name }
-func (r *mockRelease) GetDraft() bool			{ return r.draft }
-func (r *mockRelease) GetPrerelease() bool		{ return r.prerelease }
-func (r *mockRelease) GetPublishedAt() time.Time	{ return r.publishedAt }
-func (r *mockRelease) GetReleaseNotes() string		{ return r.releaseNotes }
-func (r *mockRelease) GetURL() string			{ return r.url }
-func (r *mockRelease) GetAssets() []SourceAsset		{ return r.assets }
+func (r *mockRelease) GetID() int64              { return r.id }
+func (r *mockRelease) GetTagName() string        { return r.tagName }
+func (r *mockRelease) GetName() string           { return r.name }
+func (r *mockRelease) GetDraft() bool            { return r.draft }
+func (r *mockRelease) GetPrerelease() bool       { return r.prerelease }
+func (r *mockRelease) GetPublishedAt() time.Time { return r.publishedAt }
+func (r *mockRelease) GetReleaseNotes() string   { return r.releaseNotes }
+func (r *mockRelease) GetURL() string            { return r.url }
+func (r *mockRelease) GetAssets() []SourceAsset  { return r.assets }
 
 // mockAsset implements SourceAsset for testing.
 type mockAsset struct {
-	id	int64
-	name	string
-	size	int
-	url	string
+	id   int64
+	name string
+	size int
+	url  string
 }
 
-func (a *mockAsset) GetID() int64			{ return a.id }
-func (a *mockAsset) GetName() string			{ return a.name }
-func (a *mockAsset) GetSize() int			{ return a.size }
-func (a *mockAsset) GetBrowserDownloadURL() string	{ return a.url }
+func (a *mockAsset) GetID() int64                  { return a.id }
+func (a *mockAsset) GetName() string               { return a.name }
+func (a *mockAsset) GetSize() int                  { return a.size }
+func (a *mockAsset) GetBrowserDownloadURL() string { return a.url }
 
 // mockSource implements Source for testing.
 type mockSource struct {
-	releases	[]SourceRelease
-	err		error
-	assets		map[int64]string	// assetID -> content
+	releases []SourceRelease
+	err      error
+	assets   map[int64]string // assetID -> content
 }
 
 func (s *mockSource) ListReleases(_ context.Context, _ Repository) ([]SourceRelease, error) {
@@ -67,32 +67,32 @@ func (s *mockSource) DownloadReleaseAsset(_ context.Context, _ *Release, assetID
 
 func newTestRelease(tag string, assets ...SourceAsset) *mockRelease {
 	return &mockRelease{
-		id:		1,
-		tagName:	tag,
-		name:		tag,
-		url:		"https://github.com/test/repo/releases/" + tag,
-		assets:		assets,
+		id:      1,
+		tagName: tag,
+		name:    tag,
+		url:     "https://github.com/test/repo/releases/" + tag,
+		assets:  assets,
 	}
 }
 
 func newTestAsset(name string) *mockAsset {
 	return &mockAsset{
-		id:	1,
-		name:	name,
-		size:	1024,
-		url:	"https://github.com/test/repo/releases/download/" + name,
+		id:   1,
+		name: name,
+		size: 1024,
+		url:  "https://github.com/test/repo/releases/download/" + name,
 	}
 }
 
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
-		tag	string
-		wantOK	bool
-		version	string
-		major	int
-		minor	int
-		patch	int
-		pre	string
+		tag     string
+		wantOK  bool
+		version string
+		major   int
+		minor   int
+		patch   int
+		pre     string
 	}{
 		{"v1.2.3", true, "1.2.3", 1, 2, 3, ""},
 		{"1.2.3", true, "1.2.3", 1, 2, 3, ""},
@@ -170,8 +170,8 @@ func TestDetectLatest(t *testing.T) {
 		},
 	}
 	up, _ := NewUpdater(Config{
-		Source:		src,
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
+		Source:   src,
+		Platform: Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel, found, err := up.DetectLatest(context.Background(), NewRepositorySlug("test", "repo"))
@@ -191,8 +191,8 @@ func TestDetectVersion(t *testing.T) {
 		},
 	}
 	up, _ := NewUpdater(Config{
-		Source:		src,
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
+		Source:   src,
+		Platform: Platform{OS: "linux", Arch: "amd64"},
 	})
 
 	rel, found, err := up.DetectVersion(context.Background(), NewRepositorySlug("test", "repo"), "v1.0.0")
@@ -254,9 +254,9 @@ func TestDetectIncludesDraftsWhenEnabled(t *testing.T) {
 		},
 	}
 	up, _ := NewUpdater(Config{
-		Source:		src,
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
-		Version:	VersionFilter{Draft: true},
+		Source:   src,
+		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Version:  VersionFilter{Draft: true},
 	})
 
 	rel, found, err := up.DetectLatest(context.Background(), NewRepositorySlug("test", "repo"))
@@ -313,9 +313,9 @@ func TestDetectWithFilters(t *testing.T) {
 		},
 	}
 	up, _ := NewUpdater(Config{
-		Source:		src,
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
-		Filters:	[]string{"special"},
+		Source:   src,
+		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Filters:  []string{"special"},
 	})
 
 	rel, found, err := up.DetectLatest(context.Background(), NewRepositorySlug("test", "repo"))
@@ -329,10 +329,10 @@ func TestDetectWithFilters(t *testing.T) {
 
 func TestDetectFilterMatchesBrowserURL(t *testing.T) {
 	asset := &mockAsset{
-		id:	1,
-		name:	"generic-name",
-		size:	100,
-		url:	"https://example.com/download/special-linux-amd64.tar.gz",
+		id:   1,
+		name: "generic-name",
+		size: 100,
+		url:  "https://example.com/download/special-linux-amd64.tar.gz",
 	}
 	src := &mockSource{
 		releases: []SourceRelease{
@@ -340,9 +340,9 @@ func TestDetectFilterMatchesBrowserURL(t *testing.T) {
 		},
 	}
 	up, _ := NewUpdater(Config{
-		Source:		src,
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
-		Filters:	[]string{"special"},
+		Source:   src,
+		Platform: Platform{OS: "linux", Arch: "amd64"},
+		Filters:  []string{"special"},
 	})
 
 	_, found, err := up.DetectLatest(context.Background(), NewRepositorySlug("test", "repo"))
@@ -397,10 +397,10 @@ func TestDetectWindowsSuffixes(t *testing.T) {
 
 func TestDetectMatchesDownloadURL(t *testing.T) {
 	asset := &mockAsset{
-		id:	1,
-		name:	"some-id-12345",
-		size:	100,
-		url:	"https://example.com/app_linux_amd64.tar.gz",
+		id:   1,
+		name: "some-id-12345",
+		size: 100,
+		url:  "https://example.com/app_linux_amd64.tar.gz",
 	}
 	src := &mockSource{
 		releases: []SourceRelease{
@@ -425,8 +425,8 @@ func TestDetectCustomCompareVersions(t *testing.T) {
 	}
 	// custom compare that prefers lower versions
 	up, _ := NewUpdater(Config{
-		Source:		src,
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
+		Source:   src,
+		Platform: Platform{OS: "linux", Arch: "amd64"},
 		CompareVersions: func(current, candidate Version) bool {
 			return candidate.Major < current.Major
 		},
@@ -443,7 +443,7 @@ func TestDetectCustomCompareVersions(t *testing.T) {
 
 func TestGetSuffixesIncludesCustomDecompressors(t *testing.T) {
 	up, _ := NewUpdater(Config{
-		Platform:	Platform{OS: "linux", Arch: "amd64"},
+		Platform: Platform{OS: "linux", Arch: "amd64"},
 		Decompressors: map[string]Decompressor{
 			".tar.zst": DecompressorFunc(func(src io.Reader, cmd string) (io.Reader, error) {
 				return src, nil

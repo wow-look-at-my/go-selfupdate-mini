@@ -16,13 +16,13 @@ type githubRelease struct {
 }
 
 func (r *githubRelease) GetID() int64              { return r.ID }
-func (r *githubRelease) GetTagName() string         { return r.TagName }
-func (r *githubRelease) GetDraft() bool             { return r.Draft }
-func (r *githubRelease) GetPrerelease() bool        { return r.Prerelease }
-func (r *githubRelease) GetPublishedAt() time.Time  { return r.PublishedAt }
-func (r *githubRelease) GetReleaseNotes() string    { return r.Body }
-func (r *githubRelease) GetName() string            { return r.Name }
-func (r *githubRelease) GetURL() string             { return r.HTMLURL }
+func (r *githubRelease) GetTagName() string        { return r.TagName }
+func (r *githubRelease) GetDraft() bool            { return r.Draft }
+func (r *githubRelease) GetPrerelease() bool       { return r.Prerelease }
+func (r *githubRelease) GetPublishedAt() time.Time { return r.PublishedAt }
+func (r *githubRelease) GetReleaseNotes() string   { return r.Body }
+func (r *githubRelease) GetName() string           { return r.Name }
+func (r *githubRelease) GetURL() string            { return r.HTMLURL }
 func (r *githubRelease) GetAssets() []SourceAsset {
 	assets := make([]SourceAsset, len(r.Assets))
 	for i := range r.Assets {

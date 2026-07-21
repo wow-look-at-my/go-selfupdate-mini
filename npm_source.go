@@ -118,9 +118,9 @@ var goToNpmArch = map[string]string{
 }
 
 type npmPackageMeta struct {
-	DistTags map[string]string          `json:"dist-tags"`
-	Versions map[string]npmVersionMeta  `json:"versions"`
-	Time     map[string]string          `json:"time"`
+	DistTags map[string]string         `json:"dist-tags"`
+	Versions map[string]npmVersionMeta `json:"versions"`
+	Time     map[string]string         `json:"time"`
 }
 
 type npmVersionMeta struct {
@@ -260,14 +260,14 @@ type npmRelease struct {
 	assets      []*npmReleaseAsset
 }
 
-func (r *npmRelease) GetID() int64             { return 0 }
-func (r *npmRelease) GetTagName() string       { return r.tagName }
-func (r *npmRelease) GetDraft() bool           { return false }
-func (r *npmRelease) GetPrerelease() bool      { return false }
+func (r *npmRelease) GetID() int64              { return 0 }
+func (r *npmRelease) GetTagName() string        { return r.tagName }
+func (r *npmRelease) GetDraft() bool            { return false }
+func (r *npmRelease) GetPrerelease() bool       { return false }
 func (r *npmRelease) GetPublishedAt() time.Time { return r.publishedAt }
-func (r *npmRelease) GetReleaseNotes() string  { return "" }
-func (r *npmRelease) GetName() string          { return r.tagName }
-func (r *npmRelease) GetURL() string           { return "" }
+func (r *npmRelease) GetReleaseNotes() string   { return "" }
+func (r *npmRelease) GetName() string           { return r.tagName }
+func (r *npmRelease) GetURL() string            { return "" }
 func (r *npmRelease) GetAssets() []SourceAsset {
 	out := make([]SourceAsset, len(r.assets))
 	for i, a := range r.assets {

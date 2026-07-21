@@ -3,17 +3,17 @@ package selfupdate
 import (
 	"context"
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"github.com/wow-look-at-my/testify/assert"
-	"github.com/wow-look-at-my/testify/require"
 )
 
 func TestGitHubSourceListReleases(t *testing.T) {
 	releases := []githubRelease{
 		{ID: 1, TagName: "v1.0.0", Name: "v1.0.0", HTMLURL: "https://github.com/test/repo/releases/v1.0.0",
-			Assets:	[]githubAsset{{ID: 10, Name: "app_linux_amd64.tar.gz", Size: 1024, BrowserDownloadURL: "https://example.com/app.tar.gz"}}},
+			Assets: []githubAsset{{ID: 10, Name: "app_linux_amd64.tar.gz", Size: 1024, BrowserDownloadURL: "https://example.com/app.tar.gz"}}},
 		{ID: 2, TagName: "v2.0.0", Name: "v2.0.0", HTMLURL: "https://github.com/test/repo/releases/v2.0.0"},
 	}
 
@@ -171,9 +171,9 @@ func TestGitHubSourceEnterpriseURL(t *testing.T) {
 
 func TestGitHubReleaseInterface(t *testing.T) {
 	r := &githubRelease{
-		ID:	1, TagName: "v1.0.0", Name: "Release 1",
-		Draft:	false, Prerelease: true, Body: "notes", HTMLURL: "https://example.com",
-		Assets:	[]githubAsset{{ID: 10, Name: "asset", Size: 100, BrowserDownloadURL: "https://example.com/asset"}},
+		ID: 1, TagName: "v1.0.0", Name: "Release 1",
+		Draft: false, Prerelease: true, Body: "notes", HTMLURL: "https://example.com",
+		Assets: []githubAsset{{ID: 10, Name: "asset", Size: 100, BrowserDownloadURL: "https://example.com/asset"}},
 	}
 
 	assert.Equal(t, int64(1), r.GetID())

@@ -6,11 +6,11 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"compress/gzip"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io"
 	"strings"
 	"testing"
-	"github.com/wow-look-at-my/testify/assert"
-	"github.com/wow-look-at-my/testify/require"
 )
 
 func makeGzip(t *testing.T, name string, content []byte) []byte {
@@ -220,8 +220,8 @@ func TestDecompressInvalidTarGz(t *testing.T) {
 
 func TestMatchExecutableName(t *testing.T) {
 	tests := []struct {
-		cmd, os, arch, target	string
-		want			bool
+		cmd, os, arch, target string
+		want                  bool
 	}{
 		{"myapp", "linux", "amd64", "myapp", true},
 		{"myapp", "linux", "amd64", "myapp_linux_amd64", true},
@@ -244,9 +244,9 @@ func TestMatchExecutableName(t *testing.T) {
 
 func TestSortedExtensions(t *testing.T) {
 	m := map[string]Decompressor{
-		".gz":		nil,
-		".tar.gz":	nil,
-		".zip":		nil,
+		".gz":     nil,
+		".tar.gz": nil,
+		".zip":    nil,
 	}
 	exts := sortedExtensions(m)
 	require.Equal(t, 3, len(exts))
