@@ -3,6 +3,8 @@ package selfupdate
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,8 +12,9 @@ import (
 )
 
 // RegisterCommands registers the version and update commands on the root
-// command and sets the --version flag. This is the only supported way to
-// integrate selfupdate into your CLI app -- call once and everything is wired up.
+// command and sets the --version flag. This is the recommended way to
+// integrate selfupdate into your CLI app -- one call wires up the entire
+// self-update flow.
 //
 // The current version is resolved from [WithVersion] if supplied, otherwise it
 // is auto-detected via [CurrentVersion] (which honours ldflags injection into
@@ -25,6 +28,8 @@ import (
 // Or with an explicit version override:
 //
 //	selfupdate.RegisterCommands(rootCmd, repo, selfupdate.WithVersion("1.0.0"))
+//
+// For install-to-path workflows (bootstrap tooling), use NewInstallCommand directly.
 func RegisterCommands(rootCmd *cobra.Command, repository Repository, opts ...CommandOption) {
 	cfg := applyOptions(opts)
 	rootCmd.Version = cfg.currentVersion
@@ -75,6 +80,111 @@ func newUpdaterFromConfig(cfg commandConfig) (*Updater, error) {
 	return NewUpdater(Config{})
 }
 
+// NewInstallCommand returns a *cobra.Command that downloads a release from the
+// repository and installs it to a given path.
+//
+// Usage: <program> install [path]
+//
+// If path is omitted, the binary is installed to $HOME/.local/bin/<repo>
+// (the XDG user-local convention; writable without sudo).
+// Use --version to install a specific version instead of the latest.
+func NewInstallCommand(repository Repository, opts ...CommandOption) *cobra.Command {
+	var version string
+
+	cmd := &cobra.Command{
+		Use:   "install [path]",
+		Short: "Install the binary from a GitHub release",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := applyOptions(opts)
+			up, err := newUpdaterFromConfig(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+
+			var rel *Release
+			if version != "" {
+				rel, err = detectVersion(ctx, up, repository, version)
+				if err != nil {
+					return err
+				}
+			} else {
+				r, found, err := up.DetectLatest(ctx, repository)
+				if err != nil {
+					return err
+				}
+				if !found {
+					return fmt.Errorf("no release found")
+				}
+				rel = r
+			}
+
+			cmdPath, err := installPath(repository, args)
+			if err != nil {
+				return err
+			}
+
+			if err := os.MkdirAll(filepath.Dir(cmdPath), 0o755); err != nil {
+				return fmt.Errorf("create install directory: %w", err)
+			}
+
+			if err := up.UpdateTo(ctx, rel, cmdPath); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Installed %s to %s\n", rel.Version.Version, cmdPath)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&version, "version", "", "install a specific version instead of latest")
+	return cmd
+}
+
+// NewUpdateCommand returns a *cobra.Command that updates the running binary
+// in-place to the latest (or a specific) version.
+//
+// Usage: <program> update
+//
+// Use --version to update to a specific version instead of the latest.
+func NewUpdateCommand(repository Repository, currentVersion string, opts ...CommandOption) *cobra.Command {
+	var version string
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update the binary to the latest version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := applyOptions(opts)
+			up, err := newUpdaterFromConfig(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+
+			if version != "" {
+				return updateToVersion(ctx, cmd, up, repository, version)
+			}
+
+			rel, err := up.UpdateSelf(ctx, currentVersion, repository)
+			if err != nil {
+				return err
+			}
+			if rel.Version.Version == currentVersion {
+				fmt.Fprintln(cmd.OutOrStdout(), "Already up-to-date.")
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "Updated to %s\n", rel.Version.Version)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&version, "version", "", "update to a specific version instead of latest")
+	return cmd
+}
+
 func newUpdateCommand(repository Repository, opts ...CommandOption) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [version]",
@@ -107,6 +217,19 @@ func newUpdateCommand(repository Repository, opts ...CommandOption) *cobra.Comma
 	}
 
 	return cmd
+}
+
+// NewVersionCommand returns a *cobra.Command that shows version information.
+//
+// Usage: <program> version [--bare]
+//
+// Without --bare it prints the current version, the latest available version,
+// and how long ago the latest release was published. With --bare it prints
+// only the current version string (useful for scripting).
+//
+// Recommended: use RegisterCommands instead to wire up version, update, and --version automatically.
+func NewVersionCommand(currentVersion string, repository Repository, opts ...CommandOption) *cobra.Command {
+	return newVersionCommand(repository, append([]CommandOption{WithVersion(currentVersion)}, opts...)...)
 }
 
 func newVersionCommand(repository Repository, opts ...CommandOption) *cobra.Command {
@@ -212,5 +335,22 @@ func detectVersion(ctx context.Context, up *Updater, repository Repository, vers
 		}
 	}
 	return nil, fmt.Errorf("version %s not found", version)
+}
+
+// installPath determines the destination path for the install command.
+// An explicit args[0] wins; otherwise default to $HOME/.local/bin/<repo>.
+func installPath(repository Repository, args []string) (string, error) {
+	if len(args) > 0 {
+		return args[0], nil
+	}
+	_, repo, err := repository.GetSlug()
+	if err != nil {
+		return "", err
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return filepath.Join(home, ".local", "bin", repo), nil
 }
 
